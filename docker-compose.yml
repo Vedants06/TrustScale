@@ -1,0 +1,4 @@
+version: '3.8'
+
+# TrustScale services will be added in later phases
+services: {}

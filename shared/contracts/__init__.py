@@ -1,0 +1,1 @@
+"""Shared data contracts used across all TrustScale services."""

@@ -1,0 +1,1 @@
+"""Shared cryptographic utilities for signing and verification."""

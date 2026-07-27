@@ -1,0 +1,1 @@
+"""TrustScale Worker Node service."""

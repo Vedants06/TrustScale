@@ -1,4 +1,103 @@
-version: '3.8'
+version: "3.8"
 
-# TrustScale services will be added in later phases
-services: {}
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: trustscale-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./infrastructure/redis/redis.conf:/usr/local/etc/redis/redis.conf
+      - redis-data:/data
+    command: redis-server /usr/local/etc/redis/redis.conf
+    networks:
+      - trustscale-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  load_balancer:
+    build:
+      context: .
+      dockerfile: services/load_balancer/Dockerfile
+    container_name: trustscale-lb
+    ports:
+      - "8000:8000"
+    environment:
+      - LB_PORT=8000
+      - REDIS_URL=redis://redis:6379
+      - ML_SERVICE_URL=http://ml_service:8100
+      - LOG_LEVEL=INFO
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - trustscale-network
+
+  node_1:
+    build:
+      context: .
+      dockerfile: services/node/Dockerfile
+    container_name: trustscale-node-1
+    ports:
+      - "8001:8001"
+    environment:
+      - NODE_ID=node_1
+      - NODE_PORT=8001
+      - LB_URL=http://load_balancer:8000
+      - BEHAVIOR_MODE=honest
+      - LOG_LEVEL=INFO
+    depends_on:
+      - load_balancer
+    networks:
+      - trustscale-network
+
+  ml_service:
+    build:
+      context: .
+      dockerfile: services/ml_service/Dockerfile
+    container_name: trustscale-ml
+    ports:
+      - "8100:8100"
+    environment:
+      - ML_PORT=8100
+      - LOG_LEVEL=INFO
+    networks:
+      - trustscale-network
+
+  attack_orchestrator:
+    build:
+      context: .
+      dockerfile: services/attack_orchestrator/Dockerfile
+    container_name: trustscale-orchestrator
+    ports:
+      - "8200:8200"
+    environment:
+      - LOG_LEVEL=INFO
+    depends_on:
+      - load_balancer
+    networks:
+      - trustscale-network
+
+  traffic_generator:
+    build:
+      context: .
+      dockerfile: services/traffic_generator/Dockerfile
+    container_name: trustscale-traffic
+    ports:
+      - "8089:8089"
+    environment:
+      - LOCUST_HOST=http://load_balancer:8000
+    depends_on:
+      - load_balancer
+    networks:
+      - trustscale-network
+
+networks:
+  trustscale-network:
+    driver: bridge
+
+volumes:
+  redis-data:

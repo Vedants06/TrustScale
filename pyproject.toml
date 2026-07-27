@@ -1,12 +1,13 @@
 [tool.poetry]
+package-mode = false
 name = "trustscale"
 version = "0.1.0"
-description = ""
+description = "load balancer"
 authors = ["TrustScale Authors"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "3.13.*"
 
 [build-system]
 requires = ["poetry-core"]

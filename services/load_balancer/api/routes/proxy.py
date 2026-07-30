@@ -1,11 +1,14 @@
 """Proxy route for forwarding requests to backend nodes."""
 
+from time import perf_counter, time
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Request, Response
 
+from services.load_balancer.observation.collector import collector
 from services.load_balancer.routing.forwarder import forward_request
 from services.load_balancer.routing.router import select_node
+from services.load_balancer.storage.redis_client import store_observation_summary
 from shared.utils.logger import get_logger
 
 logger = get_logger("proxy")
@@ -24,6 +27,7 @@ async def proxy_work(request: Request):
         raise HTTPException(status_code=503, detail="No nodes available")
 
     body = await request.body()
+    start = perf_counter()
 
     try:
         status, response_body, _response_headers = await forward_request(
@@ -35,6 +39,19 @@ async def proxy_work(request: Request):
             headers=dict(request.headers),
         )
 
+        duration_ms = (perf_counter() - start) * 1000
+
+        collector.record_request(
+            node_id=selected_node["node_id"],
+            duration_ms=duration_ms,
+        )
+
+        await store_observation_summary(
+            node_id=selected_node["node_id"],
+            duration_ms=duration_ms,
+            timestamp=int(time()),
+        )
+
         logger.info(
             "Request proxied",
             request_id=request_id,
@@ -42,6 +59,7 @@ async def proxy_work(request: Request):
             node_address=selected_node["address"],
             node_port=selected_node["port"],
             status=status,
+            duration_ms=round(duration_ms, 2),
         )
 
         return Response(

@@ -1,11 +1,11 @@
 """Proxy route for forwarding requests to backend nodes."""
 
-import json
+from uuid import uuid4
 
-from fastapi import APIRouter, Request, Response, HTTPException
+from fastapi import APIRouter, HTTPException, Request, Response
 
 from services.load_balancer.routing.forwarder import forward_request
-from services.load_balancer.storage.redis_client import get_redis_client
+from services.load_balancer.routing.router import select_node
 from shared.utils.logger import get_logger
 
 logger = get_logger("proxy")
@@ -13,58 +13,22 @@ logger = get_logger("proxy")
 router = APIRouter()
 
 
-async def get_next_node() -> tuple[str, int] | None:
-    """Get the next available node using simple selection.
-
-    Returns:
-        Tuple of (address, port) or None if no nodes available.
-
-    Note:
-        This is a simple implementation for the walking skeleton.
-        Real routing strategies will be implemented in later phases.
-    """
-    redis = await get_redis_client()
-
-    # Get all active nodes
-    nodes = await redis.smembers("nodes:active")
-    if not nodes:
-        return None
-
-    # For walking skeleton: just pick the first node
-    # TODO(Phase 5): Replace with real routing strategy
-    node_id = list(nodes)[0]
-
-    # Get node info
-    node_info_raw = await redis.get(f"node:{node_id}")
-    if not node_info_raw:
-        return None
-
-    node_info = json.loads(node_info_raw)
-    return node_info["address"], node_info["port"]
-
-
 @router.api_route("/work", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
 async def proxy_work(request: Request):
-    """Forward work requests to a backend node.
+    """Forward work requests to a backend node using the active routing strategy."""
+    request_id = str(uuid4())
 
-    This is the main proxy endpoint for the walking skeleton.
-    """
-    # Get next node
-    node = await get_next_node()
-    if node is None:
-        logger.warning("No nodes available for routing")
+    selected_node = await select_node()
+    if selected_node is None:
+        logger.warning("No nodes available for routing", request_id=request_id)
         raise HTTPException(status_code=503, detail="No nodes available")
 
-    address, port = node
-
-    # Read request body
     body = await request.body()
 
-    # Forward request
     try:
-        status, response_body, response_headers = await forward_request(
-            node_address=address,
-            node_port=port,
+        status, response_body, _response_headers = await forward_request(
+            node_address=selected_node["address"],
+            node_port=selected_node["port"],
             method=request.method,
             path="/work",
             body=body if body else None,
@@ -73,8 +37,10 @@ async def proxy_work(request: Request):
 
         logger.info(
             "Request proxied",
-            node_address=address,
-            node_port=port,
+            request_id=request_id,
+            selected_node=selected_node["node_id"],
+            node_address=selected_node["address"],
+            node_port=selected_node["port"],
             status=status,
         )
 
@@ -84,6 +50,11 @@ async def proxy_work(request: Request):
             media_type="application/json",
         )
 
-    except Exception as e:
-        logger.error("Proxy failed", error=str(e))
+    except Exception as error:
+        logger.error(
+            "Proxy failed",
+            request_id=request_id,
+            selected_node=selected_node["node_id"],
+            error=str(error),
+        )
         raise HTTPException(status_code=502, detail="Backend node unavailable")

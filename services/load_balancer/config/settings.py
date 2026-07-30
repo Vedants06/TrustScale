@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     lb_port: int = 8000
     redis_url: str = "redis://localhost:6379"
     ml_service_url: str = "http://localhost:8100"
-    trust_strategy: str = "trust_aware"
+    trust_strategy: str = "round_robin"
     quarantine_threshold: float = 0.30
     quarantine_initial_duration: int = 60
     bootstrap_max_initial: float = 0.5

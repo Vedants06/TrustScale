@@ -114,4 +114,4 @@ async def list_nodes():
     """
     redis = await get_redis_client()
     nodes = await redis.smembers("nodes:active")
-    return {"nodes": list(nodes)}
+    return {"nodes": sorted(list(nodes))}

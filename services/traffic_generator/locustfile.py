@@ -1,20 +1,36 @@
-"""Locust load generation configuration."""
+"""Locust load generation configuration for TrustScale."""
 
-from locust import HttpUser, task, between
+import os
+
+from locust import HttpUser, between, task
+
+TRAFFIC_PATTERN = os.getenv("TRAFFIC_PATTERN", "steady_state").strip().lower()
+
+if TRAFFIC_PATTERN == "morning_ramp":
+    from services.traffic_generator.scenarios.morning_ramp import (
+        MorningRampShape as TrafficShape,
+    )
+else:
+    from services.traffic_generator.scenarios.steady_state import (
+        SteadyStateShape as TrafficShape,
+    )
 
 
 class TrustScaleUser(HttpUser):
     """Simulated user for TrustScale load testing."""
 
-    wait_time = between(0.5, 2.0)
-    host = "http://localhost:8000"
+    wait_time = between(0.1, 0.5)
+    host = os.getenv("TARGET_URL", "http://localhost:8000")
 
-    @task
-    def health_check(self):
-        """Check load balancer health."""
+    @task(1)
+    def health_check(self) -> None:
+        """Occasional health check request."""
         self.client.get("/health")
 
-    @task(3)
-    def send_work(self):
-        """Send work request through load balancer."""
-        self.client.post("/work", json={"task": "process", "data": "test"})
+    @task(5)
+    def send_work(self) -> None:
+        """Send work request through the load balancer."""
+        self.client.post(
+            "/work",
+            json={"task": "load_test", "data": "hello"},
+        )

@@ -1,0 +1,5 @@
+name: steady_state
+description: Constant load for baseline testing
+target_users: 10
+spawn_rate: 2
+duration_seconds: 300

@@ -1,0 +1,7 @@
+name: morning_ramp
+description: Gradually increasing traffic pattern
+start_users: 1
+target_users: 20
+spawn_rate: 2
+ramp_duration_seconds: 180
+hold_duration_seconds: 120

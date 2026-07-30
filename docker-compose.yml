@@ -52,6 +52,44 @@ services:
     networks:
       - trustscale-network
 
+  node_2:
+    build:
+      context: .
+      dockerfile: services/node/Dockerfile
+    container_name: trustscale-node-2
+    ports:
+      - "8002:8001"
+    environment:
+      - NODE_ID=node_2
+      - NODE_PORT=8001
+      - LB_URL=http://load_balancer:8000
+      - BEHAVIOR_MODE=honest
+      - REPORT_INTERVAL_SECONDS=5
+      - LOG_LEVEL=INFO
+    depends_on:
+      - load_balancer
+    networks:
+      - trustscale-network
+
+  node_3:
+    build:
+      context: .
+      dockerfile: services/node/Dockerfile
+    container_name: trustscale-node-3
+    ports:
+      - "8003:8001"
+    environment:
+      - NODE_ID=node_3
+      - NODE_PORT=8001
+      - LB_URL=http://load_balancer:8000
+      - BEHAVIOR_MODE=honest
+      - REPORT_INTERVAL_SECONDS=5
+      - LOG_LEVEL=INFO
+    depends_on:
+      - load_balancer
+    networks:
+      - trustscale-network
+
 networks:
   trustscale-network:
     driver: bridge

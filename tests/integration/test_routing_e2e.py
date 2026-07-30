@@ -2,8 +2,8 @@
 
 import httpx
 
-
 LOAD_BALANCER_URL = "http://localhost:8000"
+NODE_IDS = {"node_1", "node_2", "node_3"}
 
 
 def test_health_endpoints() -> None:
@@ -14,11 +14,12 @@ def test_health_endpoints() -> None:
     assert response.json() == {"status": "ok", "service": "load_balancer"}
 
 
-def test_round_robin_routing_across_all_nodes() -> None:
-    """Repeated requests should rotate across all 3 nodes."""
+def test_routing_reaches_all_nodes() -> None:
+    """Repeated requests should reach all 3 nodes over enough requests."""
     seen_nodes: list[str] = []
 
-    for _ in range(6):
+    # Send enough requests to reach all 3 nodes
+    for _ in range(12):
         response = httpx.post(
             f"{LOAD_BALANCER_URL}/work",
             json={"task": "test", "data": "hello"},
@@ -29,8 +30,10 @@ def test_round_robin_routing_across_all_nodes() -> None:
         data = response.json()
 
         assert data["status"] == "completed"
-        assert data["node_id"] in {"node_1", "node_2", "node_3"}
+        assert data["node_id"] in NODE_IDS
 
         seen_nodes.append(data["node_id"])
 
-    assert set(seen_nodes) == {"node_1", "node_2", "node_3"}
+    assert set(seen_nodes) == NODE_IDS, (
+        f"Expected all nodes to be reached, but only saw: {set(seen_nodes)}"
+    )

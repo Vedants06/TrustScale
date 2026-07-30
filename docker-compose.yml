@@ -26,10 +26,15 @@ services:
     environment:
       - LB_PORT=8000
       - REDIS_URL=redis://redis:6379
+      - ML_SERVICE_URL=http://ml_service:8100
+      - TRUST_STRATEGY=trust_aware
+      - PREDICTION_REFRESH_INTERVAL_SECONDS=30
       - LOG_LEVEL=INFO
     depends_on:
       redis:
         condition: service_healthy
+      ml_service:
+        condition: service_started
     networks:
       - trustscale-network
 

@@ -112,6 +112,22 @@ services:
       - load_balancer
     networks:
       - trustscale-network
+    
+  ml_service:
+    build:
+      context: .
+      dockerfile: services/ml_service/Dockerfile
+    container_name: trustscale-ml
+    ports:
+      - "8100:8100"
+    environment:
+      - ML_PORT=8100
+      - PROMETHEUS_URL=http://prometheus:9090
+      - MODEL_PATH=/models/lstm_v1.pt
+      - RETRAIN_INTERVAL_MINUTES=30
+      - LOG_LEVEL=INFO
+    networks:
+      - trustscale-network
 
 networks:
   trustscale-network:

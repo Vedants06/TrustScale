@@ -3,17 +3,18 @@ FROM python:3.13-slim
 WORKDIR /app
 
 # Install dependencies
-COPY requirements.txt .
+COPY services/ml_service/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy shared module
+# Copy shared package
 COPY shared/ ./shared/
 
-# Copy service code
+# Copy services package root + ml service code
+COPY services/__init__.py ./services/__init__.py
 COPY services/ml_service/ ./services/ml_service/
 
 # Set Python path
 ENV PYTHONPATH=/app
 
-# Run the service
+# Run service
 CMD ["uvicorn", "services.ml_service.main:app", "--host", "0.0.0.0", "--port", "8100"]

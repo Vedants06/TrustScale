@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from services.ml_service.api.routes import health, predict
 from shared.utils.logger import get_logger
 
 logger = get_logger("ml_service")
@@ -19,13 +20,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="TrustScale ML Service",
-    description="Load prediction service using LSTM",
+    description="Load prediction service for TrustScale",
     version="0.1.0",
     lifespan=lifespan,
 )
 
-
-@app.get("/health")
-async def health_check():
-    """Health check endpoint."""
-    return {"status": "ok", "service": "ml_service"}
+app.include_router(health.router)
+app.include_router(predict.router)

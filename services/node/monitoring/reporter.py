@@ -4,6 +4,7 @@ import asyncio
 import time
 
 import aiohttp
+import psutil
 
 from services.node.config.settings import settings
 from services.node.crypto.signer import sign_health_report
@@ -17,25 +18,17 @@ _reporter_task: asyncio.Task | None = None
 
 
 async def send_heartbeat() -> bool:
-    """Send a signed health report to the load balancer.
-
-    Returns:
-        True if heartbeat was accepted, False otherwise.
-    """
-    # Collect metrics
+    """Send a signed health report to the load balancer."""
     metrics = collect_metrics()
 
-    # Create health report
     report = HealthReport(
         node_id=settings.node_id,
         timestamp=int(time.time()),
         metrics=metrics,
     )
 
-    # Sign the report
     signed_report = sign_health_report(report)
 
-    # Send to load balancer
     url = f"{settings.lb_url}/nodes/heartbeat"
 
     try:
@@ -47,7 +40,13 @@ async def send_heartbeat() -> bool:
                 result = await response.json()
 
                 if result.get("status") == "accepted":
-                    logger.info("Heartbeat accepted", node_id=settings.node_id)
+                    logger.info(
+                        "Heartbeat accepted",
+                        node_id=settings.node_id,
+                        cpu=metrics.cpu_percent,
+                        memory=metrics.memory_percent,
+                        active_requests=metrics.active_requests,
+                    )
                     return True
                 else:
                     logger.warning(
@@ -64,6 +63,11 @@ async def send_heartbeat() -> bool:
 
 async def reporter_loop() -> None:
     """Background task that sends heartbeats periodically."""
+    # Initialize psutil CPU tracking
+    # First call to cpu_percent always returns 0.0
+    # so we call it once on startup and discard the result
+    psutil.cpu_percent(interval=None)
+
     logger.info(
         "Reporter started",
         interval=settings.report_interval_seconds,

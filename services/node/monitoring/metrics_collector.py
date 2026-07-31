@@ -1,40 +1,44 @@
-"""Local metrics collection for node health reporting."""
+"""Real local metrics collection for node health reporting."""
 
-import time
+import psutil
 
+from services.node.monitoring.request_tracker import tracker
 from shared.contracts.health_report import NodeMetrics
 from shared.utils.logger import get_logger
 
 logger = get_logger("metrics_collector")
 
-_start_time = time.time()
-
 
 def collect_metrics() -> NodeMetrics:
-    """Collect current node metrics.
+    """Collect real current node metrics.
+
+    Uses psutil for system metrics and the request tracker
+    for application-level metrics.
 
     Returns:
-        Current node metrics.
-
-    Note:
-        This is a stub implementation for the walking skeleton.
-        Real metrics collection will be implemented in Phase 13.
+        Current node metrics with real values.
     """
-    # STUB: Hardcoded values for walking skeleton
-    # TODO(Phase 13): Replace with real psutil metrics
+    cpu_percent = psutil.cpu_percent(interval=None)
+    memory = psutil.virtual_memory()
+
     metrics = NodeMetrics(
-        cpu_percent=30.0,
-        memory_percent=40.0,
-        active_requests=5,
-        total_requests_last_5s=10,
-        avg_response_time_ms=50.0,
-        uptime_seconds=int(time.time() - _start_time),
+        cpu_percent=cpu_percent,
+        memory_percent=memory.percent,
+        active_requests=tracker.active_requests,
+        total_requests_last_5s=tracker.get_recent_requests_count(window_seconds=5),
+        avg_response_time_ms=round(
+            tracker.get_average_response_time_ms(window_seconds=5), 2
+        ),
+        uptime_seconds=tracker.uptime_seconds,
     )
 
     logger.debug(
         "Metrics collected",
         cpu=metrics.cpu_percent,
         memory=metrics.memory_percent,
+        active_requests=metrics.active_requests,
+        recent_requests=metrics.total_requests_last_5s,
+        avg_response_time=metrics.avg_response_time_ms,
     )
 
     return metrics

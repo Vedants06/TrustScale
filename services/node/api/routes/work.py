@@ -1,12 +1,14 @@
-"""Work processing endpoint."""
+"""Work processing endpoint with request tracking."""
 
 import asyncio
 import random
+from time import perf_counter
 
 from fastapi import APIRouter
 from pydantic import BaseModel
 
 from services.node.config.settings import settings
+from services.node.monitoring.request_tracker import tracker
 from shared.utils.logger import get_logger
 
 logger = get_logger("work")
@@ -31,23 +33,31 @@ class WorkResponse(BaseModel):
 
 @router.post("/work")
 async def process_work(request: WorkRequest) -> WorkResponse:
-    """Process a work request.
+    """Process a work request with real timing instrumentation."""
+    await tracker.request_started()
+    start = perf_counter()
 
-    This simulates actual work with a small delay.
-    """
-    # Simulate work with random delay (50-150ms)
-    delay = random.uniform(0.05, 0.15)
-    await asyncio.sleep(delay)
+    try:
+        # Simulate work with random delay (50-150ms)
+        delay = random.uniform(0.05, 0.15)
+        await asyncio.sleep(delay)
 
-    logger.info(
-        "Work processed",
-        node_id=settings.node_id,
-        task=request.task,
-        delay_ms=int(delay * 1000),
-    )
+        duration_ms = (perf_counter() - start) * 1000
 
-    return WorkResponse(
-        status="completed",
-        node_id=settings.node_id,
-        result=f"Processed {request.task} on {settings.node_id}",
-    )
+        logger.info(
+            "Work processed",
+            node_id=settings.node_id,
+            task=request.task,
+            duration_ms=round(duration_ms, 2),
+            active_requests=tracker.active_requests,
+        )
+
+        return WorkResponse(
+            status="completed",
+            node_id=settings.node_id,
+            result=f"Processed {request.task} on {settings.node_id}",
+        )
+
+    finally:
+        duration_ms = (perf_counter() - start) * 1000
+        await tracker.request_completed(duration_ms)

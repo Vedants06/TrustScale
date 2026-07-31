@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from services.ml_service.api.routes import health, predict
+from services.ml_service.api.routes import health, predict, metrics
 from shared.utils.logger import get_logger
 
 logger = get_logger("ml_service")
@@ -27,3 +27,4 @@ app = FastAPI(
 
 app.include_router(health.router)
 app.include_router(predict.router)
+app.include_router(metrics.router)

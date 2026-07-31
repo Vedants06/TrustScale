@@ -1,0 +1,85 @@
+{
+  "title": "TrustScale — System Overview",
+  "uid": "trustscale-overview",
+  "version": 1,
+  "schemaVersion": 36,
+  "refresh": "5s",
+  "time": {
+    "from": "now-5m",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Total Requests to Load Balancer",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "expr": "sum(trustscale_lb_requests_total)",
+          "legendFormat": "Total Requests"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Request Rate (req/s)",
+      "type": "stat",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "expr": "rate(trustscale_lb_requests_total[1m])",
+          "legendFormat": "Requests/s"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Node CPU Percent",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "trustscale_node_cpu_percent",
+          "legendFormat": "{{node_id}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Node Memory Percent",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "trustscale_node_memory_percent",
+          "legendFormat": "{{node_id}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Active Requests per Node",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "trustscale_node_active_requests",
+          "legendFormat": "{{node_id}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "LB Request Duration P95 (ms)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(trustscale_lb_request_duration_ms_bucket[1m]))",
+          "legendFormat": "P95 Latency"
+        }
+      ]
+    }
+  ]
+}

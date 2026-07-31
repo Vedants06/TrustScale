@@ -134,9 +134,45 @@ services:
     networks:
       - trustscale-network
 
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: trustscale-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infrastructure/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./infrastructure/prometheus/rules/recording_rules.yml:/etc/prometheus/rules/recording_rules.yml
+      - prometheus-data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    networks:
+      - trustscale-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: trustscale-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./infrastructure/grafana/grafana.ini:/etc/grafana/grafana.ini
+      - ./infrastructure/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./infrastructure/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - ./infrastructure/grafana/dashboards:/var/lib/grafana/dashboards
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=trustscale
+    depends_on:
+      - prometheus
+    networks:
+      - trustscale-network
+
 networks:
   trustscale-network:
     driver: bridge
 
 volumes:
   redis-data:
+  prometheus-data:
+  grafana-dashboards:

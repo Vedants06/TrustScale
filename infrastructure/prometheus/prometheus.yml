@@ -1,0 +1,34 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: load_balancer
+    static_configs:
+      - targets:
+          - load_balancer:8000
+    metrics_path: /metrics
+
+  - job_name: node_1
+    static_configs:
+      - targets:
+          - node_1:8001
+    metrics_path: /metrics
+
+  - job_name: node_2
+    static_configs:
+      - targets:
+          - node_2:8001
+    metrics_path: /metrics
+
+  - job_name: node_3
+    static_configs:
+      - targets:
+          - node_3:8001
+    metrics_path: /metrics
+
+  - job_name: ml_service
+    static_configs:
+      - targets:
+          - ml_service:8100
+    metrics_path: /metrics

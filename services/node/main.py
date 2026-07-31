@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 import aiohttp
 from fastapi import FastAPI
 
-from services.node.api.routes import health, work
+from services.node.api.routes import health, work, metrics
 from services.node.config.settings import settings
 from services.node.crypto.keypair import initialize_keypair, get_public_key_pem
 from services.node.monitoring.reporter import start_reporter, stop_reporter
@@ -15,16 +15,12 @@ logger = get_logger("node")
 
 
 async def register_with_lb() -> bool:
-    """Register this node with the load balancer.
-
-    Returns:
-        True if registration successful, False otherwise.
-    """
+    """Register this node with the load balancer."""
     url = f"{settings.lb_url}/nodes/register"
 
     payload = {
         "node_id": settings.node_id,
-        "address": settings.node_id,  # Using node_id as address for Docker networking
+        "address": settings.node_id,
         "port": settings.node_port,
         "public_key": get_public_key_pem(),
     }
@@ -35,7 +31,10 @@ async def register_with_lb() -> bool:
                 result = await response.json()
 
                 if result.get("status") == "registered":
-                    logger.info("Registered with load balancer", node_id=settings.node_id)
+                    logger.info(
+                        "Registered with load balancer",
+                        node_id=settings.node_id,
+                    )
                     return True
                 else:
                     logger.error("Registration failed", result=result)
@@ -51,18 +50,12 @@ async def lifespan(app: FastAPI):
     """Application lifespan handler for startup and shutdown."""
     logger.info(f"Node {settings.node_id} starting...")
 
-    # Generate key pair
     initialize_keypair()
-
-    # Register with load balancer
     await register_with_lb()
-
-    # Start heartbeat reporter
     await start_reporter()
 
     yield
 
-    # Stop reporter
     await stop_reporter()
     logger.info(f"Node {settings.node_id} shutting down...")
 
@@ -74,6 +67,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Include routers
 app.include_router(health.router)
 app.include_router(work.router)
+app.include_router(metrics.router)

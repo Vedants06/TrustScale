@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from services.load_balancer.api.middleware.metrics_middleware import MetricsMiddleware
+from services.load_balancer.api.middleware.prometheus_middleware import PrometheusMiddleware
 from services.load_balancer.api.routes import health, nodes, proxy
 from services.load_balancer.config.settings import settings
 from services.load_balancer.prediction.cache import cache_predictions
@@ -36,7 +37,6 @@ async def refresh_predictions_loop() -> None:
             if node_ids:
                 predictions = await fetch_predictions_for_nodes(list(node_ids))
                 await cache_predictions(predictions)
-
                 logger.info(
                     "Predictions refreshed",
                     total_nodes=len(predictions),
@@ -45,10 +45,7 @@ async def refresh_predictions_loop() -> None:
                 logger.debug("No active nodes to predict for")
 
         except Exception as error:
-            logger.error(
-                "Prediction refresh failed",
-                error=str(error),
-            )
+            logger.error("Prediction refresh failed", error=str(error))
 
         await asyncio.sleep(settings.prediction_refresh_interval_seconds)
 
@@ -59,9 +56,7 @@ async def lifespan(app: FastAPI):
     global _prediction_refresh_task
 
     logger.info("TrustScale Load Balancer starting...")
-
     await get_redis_client()
-
     _prediction_refresh_task = asyncio.create_task(refresh_predictions_loop())
 
     yield
@@ -84,6 +79,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(PrometheusMiddleware)
 app.add_middleware(MetricsMiddleware)
 
 app.include_router(health.router)

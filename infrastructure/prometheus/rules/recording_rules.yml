@@ -1,0 +1,9 @@
+groups:
+  - name: trustscale_recording_rules
+    interval: 15s
+    rules:
+      - record: job:request_duration_ms:avg
+        expr: avg by (job) (trustscale_request_duration_ms)
+
+      - record: job:active_requests:sum
+        expr: sum by (job) (trustscale_active_requests)

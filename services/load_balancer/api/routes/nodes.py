@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from services.load_balancer.crypto.keys import register_public_key, get_public_key
 from services.load_balancer.crypto.verifier import verify_health_report
 from services.load_balancer.storage.redis_client import get_redis_client
+from services.load_balancer.prediction.client import update_node_metrics_cache
 from shared.contracts.health_report import SignedHealthReport
 from shared.utils.logger import get_logger
 
@@ -62,23 +63,14 @@ async def register_node(registration: NodeRegistration):
 
 @router.post("/heartbeat")
 async def receive_heartbeat(signed_report: SignedHealthReport):
-    """Receive a signed health report from a node.
-
-    Args:
-        signed_report: Signed health report with JWT signature.
-
-    Returns:
-        Heartbeat acknowledgment.
-    """
+    """Receive a signed health report from a node."""
     node_id = signed_report.report.node_id
 
-    # Get node's public key
     public_key = await get_public_key(node_id)
     if public_key is None:
         logger.warning("Heartbeat from unregistered node", node_id=node_id)
         raise HTTPException(status_code=404, detail="Node not registered")
 
-    # Verify signature
     is_valid, error = verify_health_report(signed_report, public_key)
 
     if not is_valid:
@@ -89,7 +81,14 @@ async def receive_heartbeat(signed_report: SignedHealthReport):
         )
         return {"status": "rejected", "node_id": node_id, "reason": error}
 
-    # Store latest metrics
+    # Feed verified metrics into prediction cache
+    update_node_metrics_cache(
+        node_id=node_id,
+        cpu_percent=signed_report.report.metrics.cpu_percent,
+        active_requests=float(signed_report.report.metrics.total_requests_last_5s),
+        response_time_ms=signed_report.report.metrics.avg_response_time_ms,
+    )
+
     redis = await get_redis_client()
     await redis.set(
         f"metrics:{node_id}",
@@ -100,10 +99,10 @@ async def receive_heartbeat(signed_report: SignedHealthReport):
         "Heartbeat verified",
         node_id=node_id,
         cpu=signed_report.report.metrics.cpu_percent,
+        response_time=signed_report.report.metrics.avg_response_time_ms,
     )
 
     return {"status": "accepted", "node_id": node_id}
-
 
 @router.get("")
 async def list_nodes():

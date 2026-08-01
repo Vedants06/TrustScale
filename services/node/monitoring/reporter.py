@@ -19,19 +19,19 @@ _reporter_task: asyncio.Task | None = None
 
 async def send_heartbeat() -> bool:
     """Send a signed health report to the load balancer."""
-    metrics = collect_metrics()
-
-    report = HealthReport(
-        node_id=settings.node_id,
-        timestamp=int(time.time()),
-        metrics=metrics,
-    )
-
-    signed_report = sign_health_report(report)
-
-    url = f"{settings.lb_url}/nodes/heartbeat"
-
     try:
+        metrics = collect_metrics()
+
+        report = HealthReport(
+            node_id=settings.node_id,
+            timestamp=int(time.time()),
+            metrics=metrics,
+        )
+
+        signed_report = sign_health_report(report)
+
+        url = f"{settings.lb_url}/nodes/heartbeat"
+
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 url,
@@ -63,9 +63,6 @@ async def send_heartbeat() -> bool:
 
 async def reporter_loop() -> None:
     """Background task that sends heartbeats periodically."""
-    # Initialize psutil CPU tracking
-    # First call to cpu_percent always returns 0.0
-    # so we call it once on startup and discard the result
     psutil.cpu_percent(interval=None)
 
     logger.info(
@@ -74,7 +71,11 @@ async def reporter_loop() -> None:
     )
 
     while True:
-        await send_heartbeat()
+        try:
+            await send_heartbeat()
+        except Exception as e:
+            logger.error("Reporter loop error", error=str(e))
+
         await asyncio.sleep(settings.report_interval_seconds)
 
 

@@ -20,28 +20,78 @@ FALLBACK_PREDICTED_LOAD = 0.5
 FALLBACK_CONFIDENCE = 0.0
 FALLBACK_MODEL_VERSION = "fallback"
 
+# In-memory cache of recent metrics per node for prediction requests
+_node_recent_metrics: dict[str, list[MetricTimestep]] = {}
 
-def _build_stub_metrics(node_id: str) -> PredictionRequest:
-    """Build a minimal stub prediction request for a node.
 
-    Used when no real metrics are available yet.
+def update_node_metrics_cache(
+    node_id: str,
+    cpu_percent: float,
+    active_requests: float,
+    response_time_ms: float,
+) -> None:
+    """Update the in-memory cache of recent metrics for a node.
+
+    Called by the heartbeat handler when a valid report arrives.
+
+    Args:
+        node_id: Node identifier.
+        cpu_percent: Current CPU percent.
+        active_requests: Current active requests count.
+        response_time_ms: Current average response time.
     """
+    if node_id not in _node_recent_metrics:
+        _node_recent_metrics[node_id] = []
+
+    timestep = MetricTimestep(
+        timestamp=int(time.time()),
+        cpu_percent=cpu_percent,
+        memory_percent=0.0,
+        active_requests=int(active_requests),
+        response_time_ms=response_time_ms,
+    )
+
+    _node_recent_metrics[node_id].append(timestep)
+
+    # Keep only last 15 timesteps
+    if len(_node_recent_metrics[node_id]) > 15:
+        _node_recent_metrics[node_id] = _node_recent_metrics[node_id][-15:]
+
+
+def _get_recent_metrics_for_node(node_id: str) -> list[MetricTimestep]:
+    """Get cached recent metrics for a node.
+
+    Falls back to stub metrics if no real data available.
+
+    Args:
+        node_id: Node identifier.
+
+    Returns:
+        List of at least 10 MetricTimestep objects.
+    """
+    cached = _node_recent_metrics.get(node_id, [])
+
+    if len(cached) >= 10:
+        return cached[-10:]
+
     now = int(time.time())
     stub_metrics = [
         MetricTimestep(
             timestamp=now - (10 - i) * 5,
-            cpu_percent=30.0,
-            memory_percent=40.0,
-            active_requests=5,
-            response_time_ms=50.0,
+            cpu_percent=0.0,
+            memory_percent=0.0,
+            active_requests=0,
+            response_time_ms=0.0,
         )
         for i in range(10)
     ]
-    return PredictionRequest(node_id=node_id, recent_metrics=stub_metrics)
+
+    combined = stub_metrics + cached
+    return combined[-10:]
 
 
 def _fallback_prediction(node_id: str) -> PredictionResponse:
-    """Return a safe fallback prediction when the ML service is unavailable."""
+    """Return a safe fallback prediction when ML service is unavailable."""
     return PredictionResponse(
         node_id=node_id,
         predicted_load=FALLBACK_PREDICTED_LOAD,
@@ -56,6 +106,7 @@ async def fetch_predictions_for_nodes(
 ) -> dict[str, PredictionResponse]:
     """Fetch load predictions for a list of nodes from the ML service.
 
+    Uses real cached metrics from heartbeats for prediction input.
     Falls back to 0.5 predictions if the ML service is unavailable.
 
     Args:
@@ -67,9 +118,15 @@ async def fetch_predictions_for_nodes(
     if not node_ids:
         return {}
 
-    requests = [_build_stub_metrics(node_id) for node_id in node_ids]
-    batch_request = BatchPredictionRequest(requests=requests)
+    requests = [
+        PredictionRequest(
+            node_id=node_id,
+            recent_metrics=_get_recent_metrics_for_node(node_id),
+        )
+        for node_id in node_ids
+    ]
 
+    batch_request = BatchPredictionRequest(requests=requests)
     url = f"{settings.ml_service_url}/predict/batch"
 
     try:
@@ -94,7 +151,7 @@ async def fetch_predictions_for_nodes(
                 batch_response = BatchPredictionResponse(**raw)
 
                 logger.info(
-                    "Predictions fetched from ML service",
+                    "Real predictions fetched from ML service",
                     total_nodes=len(batch_response.predictions),
                 )
 

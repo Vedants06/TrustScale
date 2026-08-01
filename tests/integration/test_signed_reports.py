@@ -1,6 +1,7 @@
 """Integration tests for signed health reports with real metrics."""
 
 import json
+import time
 
 import httpx
 import redis
@@ -29,10 +30,20 @@ def test_all_nodes_have_real_metrics_in_redis() -> None:
         decode_responses=True,
     )
 
-    for node_id in NODE_IDS:
-        raw = redis_client.get(f"metrics:{node_id}")
+    # Wait up to 30 seconds for metrics to appear
+    max_wait = 30
+    interval = 2
 
-        assert raw is not None, f"No metrics found in Redis for {node_id}"
+    for node_id in NODE_IDS:
+        found = False
+        for _ in range(max_wait // interval):
+            raw = redis_client.get(f"metrics:{node_id}")
+            if raw is not None:
+                found = True
+                break
+            time.sleep(interval)
+
+        assert found, f"No metrics found in Redis for {node_id} after {max_wait}s"
 
         data = json.loads(raw)
 
@@ -66,6 +77,11 @@ def test_heartbeats_are_accepted_with_real_metrics() -> None:
 
     for node_id in NODE_IDS:
         raw = redis_client.get(f"metrics:{node_id}")
+
+        if raw is None:
+            # Wait a bit for heartbeats to arrive
+            time.sleep(10)
+            raw = redis_client.get(f"metrics:{node_id}")
 
         assert raw is not None, f"No heartbeat data found for {node_id}"
 

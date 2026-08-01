@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from services.ml_service.api.routes import health, predict, metrics
+from services.ml_service.prediction.predictor import load_model
 from shared.utils.logger import get_logger
 
 logger = get_logger("ml_service")
@@ -14,7 +15,19 @@ logger = get_logger("ml_service")
 async def lifespan(app: FastAPI):
     """Application lifespan handler for startup and shutdown."""
     logger.info("TrustScale ML Service starting...")
+
+    model_loaded = load_model()
+
+    if model_loaded:
+        logger.info("ML service ready with real LSTM model")
+    else:
+        logger.warning(
+            "ML service starting with stub predictions. "
+            "Train a model first: python scripts/ml/train_model.py"
+        )
+
     yield
+
     logger.info("TrustScale ML Service shutting down...")
 
 

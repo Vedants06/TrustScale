@@ -17,7 +17,7 @@ from collections import defaultdict
 import numpy as np
 import requests
 
-from services.ml_service.training.feature_engineering import compute_composite_load
+from shared.utils.composite_load import compute_composite_load
 from shared.utils.logger import get_logger
 
 logger = get_logger("baseline_profiler")

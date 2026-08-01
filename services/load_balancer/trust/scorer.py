@@ -36,8 +36,8 @@ BOOTSTRAP_CAPS = {
 BOOTSTRAP_COMPLETE_REPORTS = 20
 
 # Discrepancy thresholds
-MINOR_DISCREPANCY_THRESHOLD = 0.15
-MAJOR_DISCREPANCY_THRESHOLD = 0.30
+MINOR_DISCREPANCY_THRESHOLD = 0.50
+MAJOR_DISCREPANCY_THRESHOLD = 0.80
 
 
 def _get_bootstrap_cap(honest_reports_count: int) -> float:
@@ -73,12 +73,10 @@ def compute_trust_delta(
         discrepancy: Cross-validation discrepancy (0.0 to 1.0+).
         signature_valid: Whether JWT signature was valid.
         timestamp_fresh: Whether timestamp was within acceptable range.
-        has_sufficient_data: Whether enough observations exist for cross-validation.
+        has_sufficient_data: Whether enough observations exist.
 
     Returns:
-        Tuple of (delta, event_type) where:
-            delta is the trust score change (positive or negative)
-            event_type is the type of trust event
+        Tuple of (delta, event_type).
     """
     # Rule 4: Invalid signature — severe penalty
     if not signature_valid:
@@ -88,27 +86,33 @@ def compute_trust_delta(
     if not timestamp_fresh:
         return -0.15, "timestamp_stale"
 
-    # If no observation data, give neutral/small positive
+    # If no observation data, give small positive
     if not has_sufficient_data:
-        if current_trust < 0.9:
+        if current_trust < 0.5:
+            return +0.03, "bootstrap_period"
+        elif current_trust < 0.9:
             return +0.01, "bootstrap_period"
         return 0.0, "bootstrap_period"
 
-    # Rule 1: Honest behavior (discrepancy < 0.15)
-    if discrepancy < MINOR_DISCREPANCY_THRESHOLD:
+    # Cap discrepancy to prevent absurd penalties from timing mismatches
+    capped_discrepancy = min(discrepancy, 2.0)
+
+    # Rule 1: Honest behavior (discrepancy < threshold)
+    if capped_discrepancy < MINOR_DISCREPANCY_THRESHOLD:
         if current_trust >= 0.9:
             return +0.01, "honest_behavior"
         elif current_trust >= 0.5:
-            return +0.05, "honest_behavior"
+            return +0.03, "honest_behavior"
         else:
-            return +0.10, "honest_behavior"
+            return +0.05, "honest_behavior"
 
-    # Rule 2: Minor discrepancy (0.15 <= discrepancy < 0.30)
-    if discrepancy < MAJOR_DISCREPANCY_THRESHOLD:
+    # Rule 2: Minor discrepancy
+    if capped_discrepancy < MAJOR_DISCREPANCY_THRESHOLD:
         return -0.05, "metric_discrepancy"
 
-    # Rule 3: Major discrepancy (discrepancy >= 0.30)
-    penalty = 0.10 * (discrepancy / MAJOR_DISCREPANCY_THRESHOLD) ** 2
+    # Rule 3: Major discrepancy — capped exponential penalty
+    penalty = 0.10 * (capped_discrepancy / MAJOR_DISCREPANCY_THRESHOLD) ** 2
+    penalty = min(penalty, 0.30)  # Never penalize more than -0.30 per heartbeat
     return -penalty, "metric_discrepancy"
 
 

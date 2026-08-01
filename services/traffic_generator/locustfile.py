@@ -1,6 +1,7 @@
 """Locust load generation configuration for TrustScale."""
 
 import os
+import random
 
 from locust import HttpUser, between, task
 
@@ -29,8 +30,14 @@ class TrustScaleUser(HttpUser):
 
     @task(5)
     def send_work(self) -> None:
-        """Send work request through the load balancer."""
+        """Send work request with CPU-intensive matrix computation."""
+        import random
+        intensity = random.choice([100, 150, 200, 250, 300])
         self.client.post(
             "/work",
-            json={"task": "load_test", "data": "hello"},
+            json={
+                "task": "load_test",
+                "data": "hello",
+                "intensity": intensity,
+            },
         )

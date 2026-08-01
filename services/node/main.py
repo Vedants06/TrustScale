@@ -51,6 +51,15 @@ async def lifespan(app: FastAPI):
     logger.info(f"Node {settings.node_id} starting...")
 
     initialize_keypair()
+
+    # Warm up numpy BLAS on startup to avoid cold start delay
+    logger.info("Warming up numpy BLAS...")
+    import numpy as np
+    A = np.random.rand(10, 10).astype(np.float32)
+    B = np.random.rand(10, 10).astype(np.float32)
+    _ = np.dot(A, B)
+    logger.info("Numpy BLAS warmed up")
+
     await register_with_lb()
     await start_reporter()
 

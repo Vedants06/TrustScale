@@ -12,7 +12,6 @@ from shared.utils.logger import get_logger
 logger = get_logger("metrics_fetcher")
 
 PROMETHEUS_URL = os.getenv("PROMETHEUS_URL", "http://localhost:9090")
-
 NODE_IDS = ["node_1", "node_2", "node_3"]
 
 
@@ -22,17 +21,7 @@ def fetch_metric_range(
     end_time: float,
     step: str = "5s",
 ) -> dict[str, Any]:
-    """Fetch a metric range from Prometheus.
-
-    Args:
-        metric_name: Prometheus metric name.
-        start_time: Unix timestamp for range start.
-        end_time: Unix timestamp for range end.
-        step: Step interval string.
-
-    Returns:
-        Prometheus range query result.
-    """
+    """Fetch a metric range from Prometheus."""
     url = f"{PROMETHEUS_URL}/api/v1/query_range"
     params = {
         "query": metric_name,
@@ -43,7 +32,6 @@ def fetch_metric_range(
 
     response = requests.get(url, params=params, timeout=10.0)
     response.raise_for_status()
-
     return response.json()
 
 
@@ -54,6 +42,9 @@ def fetch_node_metrics_dataframe(
 ) -> pd.DataFrame:
     """Fetch recent metrics for a node and return as DataFrame.
 
+    Uses response time and request count as primary signals
+    because these work correctly in Docker/WSL2 environments.
+
     Args:
         node_id: Node identifier.
         duration_minutes: How many minutes of history to fetch.
@@ -61,16 +52,15 @@ def fetch_node_metrics_dataframe(
 
     Returns:
         DataFrame with columns:
-        timestamp, cpu_percent, memory_percent,
-        active_requests, response_time_ms
+        timestamp, cpu_percent, active_requests, response_time_ms
     """
     end_time = time.time()
     start_time = end_time - (duration_minutes * 60)
 
     metrics_to_fetch = {
         "cpu_percent": f'trustscale_node_cpu_percent{{node_id="{node_id}"}}',
-        "memory_percent": f'trustscale_node_memory_percent{{node_id="{node_id}"}}',
-        "active_requests": f'trustscale_node_active_requests{{node_id="{node_id}"}}',
+        "active_requests": f'trustscale_node_requests_last_30s{{node_id="{node_id}"}}',
+        "response_time_ms": f'trustscale_node_avg_response_time_ms{{node_id="{node_id}"}}',
     }
 
     series: dict[str, pd.Series] = {}
@@ -89,6 +79,9 @@ def fetch_node_metrics_dataframe(
                 continue
 
             values = data[0].get("values", [])
+            if not values:
+                continue
+
             timestamps = [float(v[0]) for v in values]
             metric_values = [float(v[1]) for v in values]
 
@@ -105,8 +98,12 @@ def fetch_node_metrics_dataframe(
                 error=str(error),
             )
 
-    if not series:
-        logger.warning("No metrics fetched for node", node_id=node_id)
+    if len(series) < 2:
+        logger.warning(
+            "Insufficient metrics fetched for node",
+            node_id=node_id,
+            fetched=list(series.keys()),
+        )
         return pd.DataFrame()
 
     df = pd.DataFrame(series)
@@ -114,14 +111,25 @@ def fetch_node_metrics_dataframe(
     df = df.reset_index()
     df = df.rename(columns={"index": "timestamp"})
 
-    # Add placeholder response time from LB observation if available
-    df["response_time_ms"] = 100.0
+    # Fill missing cpu_percent with 0 if not available
+    if "cpu_percent" not in df.columns:
+        df["cpu_percent"] = 0.0
+
+    # Fill missing response_time_ms with 0 if not available
+    if "response_time_ms" not in df.columns:
+        df["response_time_ms"] = 0.0
+
+    # Fill missing active_requests with 0 if not available
+    if "active_requests" not in df.columns:
+        df["active_requests"] = 0.0
 
     logger.info(
         "Metrics fetched for node",
         node_id=node_id,
         rows=len(df),
         duration_minutes=duration_minutes,
+        response_time_max=float(df["response_time_ms"].max()),
+        requests_max=float(df["active_requests"].max()),
     )
 
     return df
@@ -130,14 +138,7 @@ def fetch_node_metrics_dataframe(
 def fetch_all_nodes_training_data(
     duration_minutes: int = 30,
 ) -> dict[str, pd.DataFrame]:
-    """Fetch training data for all nodes.
-
-    Args:
-        duration_minutes: History duration in minutes.
-
-    Returns:
-        Dictionary mapping node_id to DataFrame.
-    """
+    """Fetch training data for all nodes."""
     all_data: dict[str, pd.DataFrame] = {}
 
     for node_id in NODE_IDS:

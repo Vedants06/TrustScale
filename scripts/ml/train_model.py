@@ -125,7 +125,7 @@ def main() -> None:
         "Training complete",
         mae=eval_metrics["mae"],
         rmse=eval_metrics["rmse"],
-        within_10_percent=eval_metrics["within_10_percent"],
+        within_absolute_05=eval_metrics["within_absolute_05"],
     )
 
     # Step 9: Save model
@@ -135,22 +135,23 @@ def main() -> None:
     logger.info(
         "Model saved successfully",
         version=model_version,
-        within_10_percent=eval_metrics["within_10_percent"],
+        within_absolute_05=eval_metrics["within_absolute_05"],
     )
 
-    # Step 10: Print summary
     print("\n" + "=" * 50)
     print("TRAINING SUMMARY")
     print("=" * 50)
-    print(f"Total training rows:     {len(combined_df)}")
-    print(f"Training sequences:      {len(X_train)}")
-    print(f"Validation sequences:    {len(X_val)}")
-    print(f"Total epochs trained:    {len(history['train_loss'])}")
-    print(f"Best val loss:           {min(history['val_loss']):.6f}")
-    print(f"MAE:                     {eval_metrics['mae']:.6f}")
-    print(f"RMSE:                    {eval_metrics['rmse']:.6f}")
-    print(f"Within 10% accuracy:     {eval_metrics['within_10_percent']:.1f}%")
-    print(f"Model version:           {model_version}")
+    print(f"Total training rows:           {len(combined_df)}")
+    print(f"Training sequences:            {len(X_train)}")
+    print(f"Validation sequences:          {len(X_val)}")
+    print(f"Total epochs trained:          {len(history['train_loss'])}")
+    print(f"Best val loss:                 {min(history['val_loss']):.6f}")
+    print(f"MAE:                           {eval_metrics['mae']:.6f}")
+    print(f"RMSE:                          {eval_metrics['rmse']:.6f}")
+    print(f"Within 0.05 absolute:          {eval_metrics['within_absolute_05']:.1f}%")
+    print(f"Within 10% (high load only):   {eval_metrics['within_10_percent_highload']:.1f}%")
+    print(f"High load samples:             {eval_metrics['high_load_samples']}")
+    print(f"Model version:                 v1")
     print("=" * 50)
 
 

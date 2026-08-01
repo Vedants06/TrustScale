@@ -1,11 +1,11 @@
 {
-  "title": "TrustScale — System Overview",
+  "title": "TrustScale - System Overview",
   "uid": "trustscale-overview",
   "version": 1,
   "schemaVersion": 36,
   "refresh": "5s",
   "time": {
-    "from": "now-5m",
+    "from": "now-10m",
     "to": "now"
   },
   "panels": [
@@ -59,21 +59,45 @@
     },
     {
       "id": 5,
-      "title": "Active Requests per Node",
+      "title": "Requests Last 30s per Node",
       "type": "timeseries",
       "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
       "targets": [
         {
-          "expr": "trustscale_node_active_requests",
+          "expr": "trustscale_node_requests_last_30s",
           "legendFormat": "{{node_id}}"
         }
       ]
     },
     {
       "id": 6,
-      "title": "LB Request Duration P95 (ms)",
+      "title": "Average Response Time per Node (ms)",
       "type": "timeseries",
       "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "trustscale_node_avg_response_time_ms",
+          "legendFormat": "{{node_id}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "P95 Response Time per Node (ms)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 20, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "trustscale_node_p95_response_time_ms",
+          "legendFormat": "{{node_id}}"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "LB Request Duration P95 (ms)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 20, "w": 12, "h": 8 },
       "targets": [
         {
           "expr": "histogram_quantile(0.95, rate(trustscale_lb_request_duration_ms_bucket[1m]))",

@@ -46,6 +46,11 @@ async def forward_request(
                 url=url,
                 data=body,
                 headers=forward_headers,
+                timeout=aiohttp.ClientTimeout(
+                    total=30.0,
+                    connect=5.0,
+                    sock_read=25.0,
+                ),
             ) as response:
                 response_body = await response.read()
                 response_headers = dict(response.headers)

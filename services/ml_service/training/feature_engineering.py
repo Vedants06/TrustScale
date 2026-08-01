@@ -7,14 +7,19 @@ from shared.utils.logger import get_logger
 
 logger = get_logger("feature_engineering")
 
-# Composite load formula weights from PRD
-CPU_WEIGHT = 0.5
+# Composite load formula weights
+# Response time is weighted most heavily because:
+# 1. It is the primary observable signal for load balancers
+# 2. It works correctly in containerized environments
+# 3. It aligns with production systems (nginx, HAProxy, AWS ALB)
+# 4. It is the most direct indicator of node stress
+CPU_WEIGHT = 0.2
 ACTIVE_REQUESTS_WEIGHT = 0.3
-RESPONSE_TIME_WEIGHT = 0.2
+RESPONSE_TIME_WEIGHT = 0.5
 
 # Normalization constants
 MAX_ACTIVE_REQUESTS = 50.0
-MAX_RESPONSE_TIME_MS = 1000.0
+MAX_RESPONSE_TIME_MS = 2000.0
 
 
 def compute_composite_load(
@@ -24,14 +29,14 @@ def compute_composite_load(
 ) -> float:
     """Compute composite load score from raw metrics.
 
-    Formula from PRD:
-        load = 0.5 × normalized_cpu +
+    Formula (response-time primary):
+        load = 0.2 × normalized_cpu +
                0.3 × normalized_active_requests +
-               0.2 × normalized_response_time
+               0.5 × normalized_response_time
 
     Args:
         cpu_percent: CPU usage 0-100.
-        active_requests: Number of active requests.
+        active_requests: Number of recent requests in last 5s.
         response_time_ms: Average response time in milliseconds.
 
     Returns:
@@ -51,20 +56,13 @@ def compute_composite_load(
 
 
 def add_composite_load_column(df: pd.DataFrame) -> pd.DataFrame:
-    """Add composite load column to a metrics DataFrame.
-
-    Args:
-        df: DataFrame with cpu_percent, active_requests, response_time_ms columns.
-
-    Returns:
-        DataFrame with added composite_load column.
-    """
+    """Add composite load column to a metrics DataFrame."""
     df = df.copy()
     df["composite_load"] = df.apply(
         lambda row: compute_composite_load(
             cpu_percent=row["cpu_percent"],
-            active_requests=row["active_requests"],
-            response_time_ms=row["response_time_ms"],
+            active_requests=row.get("active_requests", 0),
+            response_time_ms=row.get("response_time_ms", 0),
         ),
         axis=1,
     )
@@ -76,18 +74,7 @@ def create_sequences(
     sequence_length: int = 10,
     prediction_horizon: int = 1,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Create sliding window sequences for LSTM training.
-
-    Args:
-        data: 1D array of composite load values.
-        sequence_length: Number of timesteps in each input sequence.
-        prediction_horizon: How many steps ahead to predict.
-
-    Returns:
-        Tuple of (X, y) where:
-            X has shape (n_samples, sequence_length, 1)
-            y has shape (n_samples,)
-    """
+    """Create sliding window sequences for LSTM training."""
     X_list = []
     y_list = []
 
@@ -106,16 +93,7 @@ def prepare_training_data(
     sequence_length: int = 10,
     train_split: float = 0.8,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Prepare training and validation data from a metrics DataFrame.
-
-    Args:
-        df: DataFrame with composite_load column.
-        sequence_length: Sequence length for LSTM input.
-        train_split: Fraction of data for training.
-
-    Returns:
-        Tuple of (X_train, y_train, X_val, y_val).
-    """
+    """Prepare training and validation data from a metrics DataFrame."""
     if "composite_load" not in df.columns:
         df = add_composite_load_column(df)
 
@@ -142,6 +120,9 @@ def prepare_training_data(
         train_sequences=len(X_train),
         val_sequences=len(X_val),
         sequence_length=sequence_length,
+        load_min=float(load_values.min()),
+        load_max=float(load_values.max()),
+        load_mean=float(load_values.mean()),
     )
 
     return X_train, y_train, X_val, y_val

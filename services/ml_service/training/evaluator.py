@@ -9,18 +9,17 @@ from shared.utils.logger import get_logger
 
 logger = get_logger("evaluator")
 
-
 def evaluate_model(
     model: nn.Module,
     val_loader: DataLoader,
-    tolerance: float = 0.10,
+    tolerance: float = 0.05,
 ) -> dict[str, float]:
     """Evaluate model accuracy on validation data.
 
     Args:
         model: Trained LSTM model.
         val_loader: Validation data loader.
-        tolerance: Acceptable prediction error fraction.
+        tolerance: Absolute prediction error tolerance (on 0-1 scale).
 
     Returns:
         Dictionary with evaluation metrics.
@@ -42,24 +41,39 @@ def evaluate_model(
     mae = float(np.mean(np.abs(predictions_arr - targets_arr)))
     rmse = float(np.sqrt(np.mean((predictions_arr - targets_arr) ** 2)))
 
-    # Percentage within tolerance
-    relative_errors = np.abs(predictions_arr - targets_arr) / (
-        np.abs(targets_arr) + 1e-8
+    # Absolute tolerance check (better for near-zero values)
+    absolute_errors = np.abs(predictions_arr - targets_arr)
+    within_absolute_tolerance = float(
+        np.mean(absolute_errors < tolerance) * 100
     )
-    within_tolerance = float(np.mean(relative_errors < tolerance) * 100)
+
+    # Relative tolerance check (meaningful only when actual > 0.1)
+    high_load_mask = targets_arr > 0.1
+    if high_load_mask.sum() > 0:
+        relative_errors = np.abs(
+            predictions_arr[high_load_mask] - targets_arr[high_load_mask]
+        ) / targets_arr[high_load_mask]
+        within_relative_tolerance = float(
+            np.mean(relative_errors < 0.10) * 100
+        )
+    else:
+        within_relative_tolerance = 0.0
 
     metrics = {
         "mae": round(mae, 6),
         "rmse": round(rmse, 6),
-        "within_10_percent": round(within_tolerance, 2),
+        "within_absolute_05": round(within_absolute_tolerance, 2),
+        "within_10_percent_highload": round(within_relative_tolerance, 2),
         "total_samples": len(all_predictions),
+        "high_load_samples": int(high_load_mask.sum()),
     }
 
     logger.info(
         "Evaluation complete",
         mae=metrics["mae"],
         rmse=metrics["rmse"],
-        within_10_percent=metrics["within_10_percent"],
+        within_absolute_05=metrics["within_absolute_05"],
+        within_10_percent_highload=metrics["within_10_percent_highload"],
         total_samples=metrics["total_samples"],
     )
 

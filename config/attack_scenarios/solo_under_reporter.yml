@@ -1,0 +1,19 @@
+scenario_id: solo_under_reporter
+name: Solo Under-Reporter Attack
+description: >
+  A single node under-reports its load by 50%.
+  This is the baseline Byzantine attack scenario.
+  Used to establish detection capability.
+
+total_nodes: 3
+target_nodes:
+  - node_id: node_1
+    behavior: under_reporter
+    intensity: 0.5
+    start_at_seconds: 10
+    duration_seconds: 120
+
+traffic_pattern: steady_state
+scenario_duration_seconds: 150
+defense_enabled: true
+random_seed: 1001

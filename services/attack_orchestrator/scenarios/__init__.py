@@ -1,0 +1,1 @@
+"""Attack scenario definitions for TrustScale experiments."""

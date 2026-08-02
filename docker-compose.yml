@@ -136,6 +136,24 @@ services:
       - LOG_LEVEL=INFO
     networks:
       - trustscale-network
+    
+  attack_orchestrator:
+    build:
+      context: .
+      dockerfile: services/attack_orchestrator/Dockerfile
+    container_name: trustscale-orchestrator
+    ports:
+      - "8200:8200"
+    environment:
+      - ORCHESTRATOR_PORT=8200
+      - SCENARIOS_DIR=/app/config/attack_scenarios
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./research/data/experiments:/app/research/data/experiments
+    depends_on:
+      - load_balancer
+    networks:
+      - trustscale-network
 
   prometheus:
     image: prom/prometheus:latest

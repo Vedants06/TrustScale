@@ -26,6 +26,16 @@ async def send_heartbeat() -> bool:
         behavior = get_current_behavior()
         metrics = behavior.apply(real_metrics)
 
+        logger.info(
+            "Behavior applied",
+            node_id=settings.node_id,
+            mode=behavior.name,
+            real_cpu=real_metrics.cpu_percent,
+            reported_cpu=metrics.cpu_percent,
+            real_response_ms=real_metrics.avg_response_time_ms,
+            reported_response_ms=metrics.avg_response_time_ms,
+        )
+
         report = HealthReport(
             node_id=settings.node_id,
             timestamp=int(time.time()),

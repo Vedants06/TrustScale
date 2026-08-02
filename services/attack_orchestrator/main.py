@@ -123,6 +123,15 @@ async def list_scenarios():
     }
 
 
+@router.get("/scenarios/status")
+async def get_running_status():
+    """Get currently running scenario status."""
+    return {
+        "running_scenario": _running_scenario,
+        "is_running": _running_scenario is not None,
+    }
+
+
 @router.get("/scenarios/{scenario_id}")
 async def get_scenario(scenario_id: str):
     """Get details of a specific scenario."""
@@ -229,15 +238,6 @@ async def run_scenario_endpoint(
         "scenario_id": request.scenario_id,
         "repetition_number": request.repetition_number,
         "message": "Scenario running in background",
-    }
-
-
-@router.get("/scenarios/status")
-async def get_running_status():
-    """Get currently running scenario status."""
-    return {
-        "running_scenario": _running_scenario,
-        "is_running": _running_scenario is not None,
     }
 
 

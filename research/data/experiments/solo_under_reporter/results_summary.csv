@@ -1,0 +1,2 @@
+scenario_id,repetition_number,random_seed,started_at,duration_seconds,total_requests,successful_requests,failed_requests,success_rate,avg_latency_ms,p95_latency_ms,detection_time_seconds,nodes_quarantined
+solo_under_reporter,1,1001,1785694642.76076,155.33,123,123,0,1.0,57.51,79.29,,[]

@@ -1,0 +1,28 @@
+{
+  "scenario_id": "solo_under_reporter",
+  "repetition_number": 1,
+  "random_seed": 1001,
+  "started_at": 1785696949.799057,
+  "completed_at": 1785697225.6010451,
+  "duration_seconds": 275.8,
+  "total_requests": 423,
+  "successful_requests": 423,
+  "failed_requests": 0,
+  "success_rate": 1.0,
+  "avg_latency_ms": 58.16,
+  "p95_latency_ms": 83.46,
+  "detection_time_seconds": null,
+  "nodes_quarantined": [],
+  "initial_trust_scores": {
+    "node_1": 0.67,
+    "node_2": 0.67,
+    "node_3": 0.67
+  },
+  "final_trust_scores": {
+    "0.9": 0.9,
+    "node_1": 0.9,
+    "1.0": 1.0,
+    "node_2": 1.0,
+    "node_3": 1.0
+  }
+}

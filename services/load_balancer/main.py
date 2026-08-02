@@ -8,8 +8,8 @@ from fastapi import FastAPI
 from services.load_balancer.api.middleware.metrics_middleware import MetricsMiddleware
 from services.load_balancer.api.middleware.prometheus_middleware import PrometheusMiddleware
 from services.load_balancer.api.routes import health, nodes, proxy
-from services.load_balancer.api.routes.trust_metrics import router as trust_metrics_router
 from services.load_balancer.config.settings import settings
+from services.load_balancer.api.routes.admin import router as admin_router
 from services.load_balancer.prediction.cache import cache_predictions
 from services.load_balancer.prediction.client import fetch_predictions_for_nodes
 from services.load_balancer.storage.redis_client import (
@@ -86,3 +86,4 @@ app.add_middleware(MetricsMiddleware)
 app.include_router(health.router)
 app.include_router(nodes.router)
 app.include_router(proxy.router)
+app.include_router(admin_router)

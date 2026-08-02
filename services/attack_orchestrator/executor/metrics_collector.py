@@ -102,7 +102,7 @@ async def get_node_trust_score(node_id: str) -> float | None:
 
 async def send_work_request(
     metrics: ScenarioMetrics,
-    intensity: int = 200,
+    intensity: int = 1000,
 ) -> bool:
     """Send a work request through the LB and record metrics."""
     start = time.perf_counter()

@@ -16,7 +16,6 @@ from shared.utils.logger import get_logger
 logger = get_logger("scenario_runner")
 
 LB_URL = "http://load_balancer:8000"
-NODE_BASE_URL = "http://{node_id}:8001"
 
 
 async def set_node_behavior(
@@ -24,16 +23,7 @@ async def set_node_behavior(
     mode: str,
     intensity: float,
 ) -> bool:
-    """Change a node's behavior via admin API.
-
-    Args:
-        node_id: Node identifier.
-        mode: Behavior mode (honest, under_reporter, over_reporter).
-        intensity: Behavior intensity (0.0 to 1.0).
-
-    Returns:
-        True if behavior was set successfully.
-    """
+    """Change a node's behavior via admin API."""
     url = f"http://{node_id}:8001/admin/set-behavior"
 
     try:
@@ -98,7 +88,6 @@ async def collect_final_trust_scores(
     for node_id in node_ids:
         score = await get_node_trust_score(node_id)
         if score is not None:
-            metrics.final_trust_scores[score] = score
             metrics.final_trust_scores[node_id] = score
 
 
@@ -106,16 +95,9 @@ async def monitor_for_quarantine(
     target_node_ids: list[str],
     metrics: ScenarioMetrics,
     poll_interval: float = 2.0,
-    max_duration: float = 180.0,
+    max_duration: float = 300.0,
 ) -> None:
-    """Poll trust scores and record when target nodes get quarantined.
-
-    Args:
-        target_node_ids: Nodes we expect to be quarantined.
-        metrics: Metrics object to update.
-        poll_interval: Seconds between polls.
-        max_duration: Maximum time to monitor.
-    """
+    """Poll trust scores and record when target nodes get quarantined."""
     start = time.time()
 
     while time.time() - start < max_duration:
@@ -160,24 +142,39 @@ async def monitor_for_quarantine(
         await asyncio.sleep(poll_interval)
 
 
+async def set_lb_routing_strategy(strategy: str) -> bool:
+    """Switch the LB routing strategy for the scenario."""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{LB_URL}/admin/set-strategy",
+                json={"strategy": strategy},
+                timeout=5.0,
+            )
+        if response.status_code == 200:
+            logger.info("LB routing strategy set", strategy=strategy)
+            return True
+        logger.warning(
+            "Failed to set routing strategy",
+            status=response.status_code,
+        )
+        return False
+    except Exception as error:
+        logger.warning("Failed to set routing strategy", error=str(error))
+        return False
+
+
 async def run_scenario(
     config: ScenarioConfig,
     repetition_number: int = 1,
 ) -> ScenarioMetrics:
-    """Execute a complete attack scenario.
-
-    Args:
-        config: Scenario configuration.
-        repetition_number: Which repetition this is (1-5).
-
-    Returns:
-        Metrics collected during the scenario.
-    """
+    """Execute a complete attack scenario."""
     logger.info(
         "Starting scenario",
         scenario_id=config.scenario_id,
         repetition=repetition_number,
         seed=config.random_seed,
+        defense_enabled=config.defense_enabled,
     )
 
     all_node_ids = [f"node_{i}" for i in range(1, config.total_nodes + 1)]
@@ -194,7 +191,13 @@ async def run_scenario(
         await reset_all_nodes_to_honest(all_node_ids)
         await asyncio.sleep(5)
 
-        # Step 2: Collect initial trust scores
+        # Step 2: Switch to round_robin so all nodes receive traffic
+        # This ensures cross-validation has observations for all nodes
+        logger.info("Switching to round_robin for scenario observation")
+        await set_lb_routing_strategy("round_robin")
+        await asyncio.sleep(2)
+
+        # Step 3: Collect initial trust scores
         await collect_initial_trust_scores(all_node_ids, metrics)
 
         logger.info(
@@ -202,50 +205,60 @@ async def run_scenario(
             scores=metrics.initial_trust_scores,
         )
 
-        # Step 3: Start background monitoring for quarantine
-        monitor_task = asyncio.create_task(
-            monitor_for_quarantine(
-                target_node_ids=target_node_ids,
-                metrics=metrics,
-                max_duration=float(config.scenario_duration_seconds),
-            )
-        )
+        # Step 4: If defense disabled, freeze trust scores
+        if not config.defense_enabled:
+            logger.info("Defense disabled — freezing trust scores")
+            await _freeze_trust_scores(all_node_ids, value=1.0)
 
-        # Step 4: Run scenario phases
+        # Step 5: Start background quarantine monitoring
+        monitor_task = None
+        if config.defense_enabled:
+            monitor_task = asyncio.create_task(
+                monitor_for_quarantine(
+                    target_node_ids=target_node_ids,
+                    metrics=metrics,
+                    max_duration=float(config.scenario_duration_seconds),
+                )
+            )
+
+        # Step 6: Run scenario phases
         scenario_start = time.time()
 
         for node_config in config.target_nodes:
-            # Wait until this node's start time
             while (time.time() - scenario_start) < node_config.start_at_seconds:
                 await asyncio.sleep(0.5)
 
-            # Activate attack behavior
             await set_node_behavior(
                 node_id=node_config.node_id,
                 mode=node_config.behavior,
                 intensity=node_config.intensity,
             )
 
-        # Step 5: Generate traffic during scenario
+        # Step 7: Generate traffic during scenario
         traffic_end = scenario_start + config.scenario_duration_seconds
-        request_interval = 1.0
+        request_interval = 0.5
 
         while time.time() < traffic_end:
             await send_work_request(metrics)
             await asyncio.sleep(request_interval)
 
-        # Step 6: Wait for monitoring to complete
-        monitor_task.cancel()
-        try:
-            await monitor_task
-        except asyncio.CancelledError:
-            pass
+        # Step 8: Cancel monitoring
+        if monitor_task is not None:
+            monitor_task.cancel()
+            try:
+                await monitor_task
+            except asyncio.CancelledError:
+                pass
 
-        # Step 7: Collect final trust scores
+        # Step 9: Collect final trust scores
         await collect_final_trust_scores(all_node_ids, metrics)
 
-        # Step 8: Reset all nodes to honest
+        # Step 10: Reset everything
         await reset_all_nodes_to_honest(all_node_ids)
+
+        # Step 11: Restore trust_aware routing
+        logger.info("Restoring trust_aware routing after scenario")
+        await set_lb_routing_strategy("trust_aware")
 
         metrics.completed_at = time.time()
 
@@ -267,5 +280,32 @@ async def run_scenario(
         )
         metrics.completed_at = time.time()
         await reset_all_nodes_to_honest(all_node_ids)
+        # Always restore routing on error
+        await set_lb_routing_strategy("trust_aware")
 
     return metrics
+
+
+async def _freeze_trust_scores(
+    node_ids: list[str],
+    value: float = 1.0,
+) -> None:
+    """Temporarily set all trust scores to a fixed value."""
+    import redis.asyncio as redis_lib
+
+    client = redis_lib.from_url(
+        "redis://redis:6379",
+        encoding="utf-8",
+        decode_responses=True,
+    )
+
+    for node_id in node_ids:
+        await client.set(f"trust:{node_id}", str(value))
+
+    await client.aclose()
+
+    logger.info(
+        "Trust scores frozen for no-defense baseline",
+        node_ids=node_ids,
+        value=value,
+    )

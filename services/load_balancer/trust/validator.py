@@ -219,26 +219,9 @@ async def cross_validate_heartbeat(
     node_id: str,
     report: HealthReport,
 ) -> dict:
-    """Cross-validate a node's claimed metrics against observed behavior.
-
-    Uses tolerance-based comparison that accounts for Docker
-    container network overhead between LB and node.
-
-    The discrepancy measures how far the observed response time
-    deviates from the expected range:
-        expected range = (claimed_rt + overhead) ± tolerance
-
-    If observed is within range → discrepancy near 0
-    If observed is far outside range → high discrepancy
-
-    Args:
-        node_id: Node identifier.
-        report: The health report containing claimed metrics.
-
-    Returns:
-        Dictionary with cross-validation results.
-    """
-    claimed_response_time = report.metrics.avg_response_time_ms
+    """Cross-validate using composite load comparison."""
+    
+    # What the node claims its composite load is
     claimed_load = compute_composite_load(
         cpu_percent=report.metrics.cpu_percent,
         active_requests=float(report.metrics.total_requests_last_5s),
@@ -246,20 +229,15 @@ async def cross_validate_heartbeat(
     )
 
     observed_avg = get_observed_average_response_time(node_id, window_seconds=30)
-    observed_p95 = get_observed_p95_response_time(node_id, window_seconds=30)
     observed_count = get_observed_request_count(node_id, window_seconds=30)
+    observed_p95 = get_observed_p95_response_time(node_id, window_seconds=30)
 
     has_sufficient_data = observed_avg is not None and observed_count >= 3
 
     if not has_sufficient_data:
-        logger.debug(
-            "Insufficient observation data for cross-validation",
-            node_id=node_id,
-            observed_count=observed_count,
-        )
         return {
             "claimed_load": round(claimed_load, 4),
-            "claimed_response_time": round(claimed_response_time, 2),
+            "claimed_response_time": round(report.metrics.avg_response_time_ms, 2),
             "observed_avg": None,
             "observed_p95": None,
             "observed_count": observed_count,
@@ -267,42 +245,51 @@ async def cross_validate_heartbeat(
             "has_sufficient_data": False,
         }
 
-    # Expected observed time = claimed time + network overhead
-    expected_observed = claimed_response_time + NETWORK_OVERHEAD_MS
+    # Compute observed composite load from what LB actually sees
+    # Use observed response time and request count, assume cpu same
+    observed_load = compute_composite_load(
+        cpu_percent=report.metrics.cpu_percent,  # CPU we cannot verify independently
+        active_requests=float(observed_count),
+        response_time_ms=observed_avg,
+    )
 
-    # Tolerance band = expected_observed * tolerance_multiplier
-    tolerance = max(expected_observed * TOLERANCE_MULTIPLIER, 100.0)
+    # Discrepancy: how much is claimed load lower than observed load?
+    # Under-reporter: claimed_load << observed_load
+    # Over-reporter: claimed_load >> observed_load
+    # Honest: claimed_load ≈ observed_load
 
-    # How far outside the tolerance band is the observation?
-    deviation = abs(observed_avg - expected_observed)
-
-    if deviation <= tolerance:
-        # Within tolerance band — no discrepancy
+    if observed_load < 0.01:
+        # Both are near zero — no discrepancy
         discrepancy = 0.0
     else:
-        # Outside tolerance band — compute proportional discrepancy
-        excess = deviation - tolerance
-        discrepancy = excess / max(expected_observed, 1.0)
-        discrepancy = min(discrepancy, 2.0)
+        load_difference = observed_load - claimed_load
+
+        if load_difference <= 0:
+            # Claimed >= observed (over-reporter or honest)
+            # Over-reporting is also a form of lying
+            if abs(load_difference) > observed_load * 0.5:
+                discrepancy = min(abs(load_difference) / max(observed_load, 0.01), 2.0)
+            else:
+                discrepancy = 0.0
+        else:
+            # Claimed < observed (under-reporter)
+            discrepancy = min(load_difference / max(observed_load, 0.01), 2.0)
 
     logger.info(
         "Cross-validation result",
         node_id=node_id,
         claimed_load=round(claimed_load, 4),
-        claimed_rt=round(claimed_response_time, 2),
-        expected_observed=round(expected_observed, 2),
-        tolerance=round(tolerance, 2),
+        observed_load=round(observed_load, 4),
+        claimed_rt=round(report.metrics.avg_response_time_ms, 2),
         observed_avg=round(observed_avg, 2),
-        observed_p95=round(observed_p95, 2) if observed_p95 else None,
         observed_count=observed_count,
         discrepancy=round(discrepancy, 4),
     )
 
     return {
         "claimed_load": round(claimed_load, 4),
-        "claimed_response_time": round(claimed_response_time, 2),
-        "expected_observed": round(expected_observed, 2),
-        "tolerance": round(tolerance, 2),
+        "observed_load": round(observed_load, 4),
+        "claimed_response_time": round(report.metrics.avg_response_time_ms, 2),
         "observed_avg": round(observed_avg, 2),
         "observed_p95": round(observed_p95, 2) if observed_p95 else None,
         "observed_count": observed_count,

@@ -1,2 +1,5 @@
 scenario_id,repetition_number,random_seed,started_at,duration_seconds,total_requests,successful_requests,failed_requests,success_rate,avg_latency_ms,p95_latency_ms,detection_time_seconds,nodes_quarantined
 solo_under_reporter,1,1001,1785694642.76076,155.33,123,123,0,1.0,57.51,79.29,,[]
+solo_under_reporter,1,1001,1785696949.799057,275.8,423,423,0,1.0,58.16,83.46,,[]
+solo_under_reporter,1,1001,1785698929.148561,280.37,420,420,0,1.0,52.53,76.77,,[]
+solo_under_reporter,1,1001,1785699798.120038,277.71,411,411,0,1.0,73.1,101.59,61.17,['node_1']

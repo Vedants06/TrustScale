@@ -9,8 +9,20 @@ from services.load_balancer.crypto.keys import register_public_key, get_public_k
 from services.load_balancer.crypto.verifier import verify_health_report
 from services.load_balancer.prediction.client import update_node_metrics_cache
 from services.load_balancer.storage.redis_client import get_redis_client
+from services.load_balancer.trust.history import get_trust_history, record_trust_event
+from services.load_balancer.trust.quarantine import (
+    get_quarantine_status,
+    quarantine_node,
+    restore_node,
+)
 from services.load_balancer.trust.scorer import update_trust_score
 from services.load_balancer.trust.validator import cross_validate_heartbeat
+from services.load_balancer.api.routes.trust_metrics import (
+    discrepancy_gauge,
+    quarantine_count_gauge,
+    quarantine_status_gauge,
+    trust_score_gauge,
+)
 from shared.contracts.health_report import SignedHealthReport
 from shared.utils.logger import get_logger
 
@@ -54,7 +66,7 @@ async def register_node(registration: NodeRegistration):
 
 @router.post("/heartbeat")
 async def receive_heartbeat(signed_report: SignedHealthReport):
-    """Receive, validate, cross-validate, and score a health report."""
+    """Receive, validate, cross-validate, score, and quarantine check."""
     node_id = signed_report.report.node_id
 
     # Step 1: Get public key
@@ -72,14 +84,23 @@ async def receive_heartbeat(signed_report: SignedHealthReport):
             node_id=node_id,
             error=error,
         )
-
-        # Update trust with signature/timestamp failure
-        await update_trust_score(
+        trust_event = await update_trust_score(
             node_id=node_id,
             discrepancy=1.0,
             signature_valid=(error != "invalid_signature"),
             timestamp_fresh=(error != "timestamp_stale"),
             has_sufficient_data=False,
+        )
+
+        # Update Prometheus metrics
+        trust_score_gauge.labels(node_id=node_id).set(
+            trust_event["trust_score_after"]
+        )
+        quarantine_status_gauge.labels(node_id=node_id).set(
+            1 if trust_event["is_quarantined"] else 0
+        )
+        quarantine_count_gauge.labels(node_id=node_id).set(
+            trust_event["quarantine_count"]
         )
 
         return {"status": "rejected", "node_id": node_id, "reason": error}
@@ -92,10 +113,10 @@ async def receive_heartbeat(signed_report: SignedHealthReport):
         response_time_ms=signed_report.report.metrics.avg_response_time_ms,
     )
 
-    # Step 4: Cross-validate claimed vs observed behavior
+    # Step 4: Cross-validate claimed vs observed
     cv_result = await cross_validate_heartbeat(node_id, signed_report.report)
 
-    # Step 5: Update trust score based on cross-validation
+    # Step 5: Update trust score
     trust_event = await update_trust_score(
         node_id=node_id,
         discrepancy=cv_result["discrepancy"],
@@ -104,14 +125,35 @@ async def receive_heartbeat(signed_report: SignedHealthReport):
         has_sufficient_data=cv_result["has_sufficient_data"],
     )
 
-    # Step 6: Store latest metrics in Redis
+    # Step 6: Handle quarantine
+    if trust_event["is_quarantined"]:
+        await quarantine_node(
+            node_id=node_id,
+            quarantine_count=trust_event["quarantine_count"],
+        )
+    elif trust_event["trust_score_after"] > 0.35:
+        await restore_node(node_id)
+
+    # Step 7: Update Prometheus metrics
+    trust_score_gauge.labels(node_id=node_id).set(
+        trust_event["trust_score_after"]
+    )
+    quarantine_status_gauge.labels(node_id=node_id).set(
+        1 if trust_event["is_quarantined"] else 0
+    )
+    quarantine_count_gauge.labels(node_id=node_id).set(
+        trust_event["quarantine_count"]
+    )
+    discrepancy_gauge.labels(node_id=node_id).set(
+        cv_result["discrepancy"]
+    )
+
+    # Step 8: Store latest metrics in Redis
     redis = await get_redis_client()
     await redis.set(
         f"metrics:{node_id}",
         signed_report.report.model_dump_json(),
     )
-
-    # Step 7: Store cross-validation result
     await redis.set(
         f"cv:{node_id}",
         json.dumps(cv_result),
@@ -123,6 +165,7 @@ async def receive_heartbeat(signed_report: SignedHealthReport):
         trust_score=trust_event["trust_score_after"],
         event_type=trust_event["event_type"],
         discrepancy=cv_result["discrepancy"],
+        quarantined=trust_event["is_quarantined"],
     )
 
     return {
@@ -130,6 +173,7 @@ async def receive_heartbeat(signed_report: SignedHealthReport):
         "node_id": node_id,
         "trust_score": trust_event["trust_score_after"],
         "discrepancy": cv_result["discrepancy"],
+        "is_quarantined": trust_event["is_quarantined"],
     }
 
 
@@ -143,34 +187,26 @@ async def list_nodes():
 
 @router.get("/{node_id}/trust")
 async def get_node_trust(node_id: str):
-    """Get trust status and recent history for a node."""
+    """Get full trust status for a node."""
     redis = await get_redis_client()
 
-    trust_score_raw = await redis.get(f"trust:{node_id}")
-    trust_score = float(trust_score_raw) if trust_score_raw else None
+    trust_raw = await redis.get(f"trust:{node_id}")
+    trust_score = float(trust_raw) if trust_raw else None
 
     bootstrap_raw = await redis.get(f"bootstrap:{node_id}")
     bootstrap = json.loads(bootstrap_raw) if bootstrap_raw else None
 
-    quarantine_raw = await redis.get(f"quarantine:{node_id}")
-    is_quarantined = quarantine_raw == "true" if quarantine_raw else False
-
-    quarantine_count_raw = await redis.get(f"quarantine_count:{node_id}")
-    quarantine_count = int(quarantine_count_raw) if quarantine_count_raw else 0
-
     cv_raw = await redis.get(f"cv:{node_id}")
     cv_result = json.loads(cv_raw) if cv_raw else None
 
-    # Get recent trust history
-    history_raw = await redis.lrange(f"trust_history:{node_id}", 0, 9)
-    history = [json.loads(h) for h in history_raw] if history_raw else []
+    quarantine_status = await get_quarantine_status(node_id)
+    history = await get_trust_history(node_id, limit=10)
 
     return {
         "node_id": node_id,
         "trust_score": trust_score,
-        "is_quarantined": is_quarantined,
-        "quarantine_count": quarantine_count,
         "bootstrap": bootstrap,
+        "quarantine": quarantine_status,
         "cross_validation": cv_result,
         "recent_history": history,
     }

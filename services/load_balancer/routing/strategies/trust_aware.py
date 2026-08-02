@@ -1,20 +1,26 @@
-"""Trust-aware routing strategy combining ML predictions and trust scores."""
+"""Trust-aware routing strategy combining real ML predictions and trust scores.
+
+This is the core routing contribution of TrustScale.
+
+Routing Score = (predicted_load × 0.6) + ((1 - trust_score) × 0.4)
+Lowest score wins.
+
+Nodes below the quarantine threshold are excluded entirely.
+"""
 
 import json
 
 from services.load_balancer.prediction.cache import get_cached_predicted_load
 from services.load_balancer.routing.strategies.round_robin import NodeTarget
 from services.load_balancer.storage.redis_client import get_redis_client
+from services.load_balancer.trust.quarantine import is_node_quarantined
 from shared.utils.logger import get_logger
 
 logger = get_logger("trust_aware")
 
 PREDICTED_LOAD_WEIGHT = 0.6
 TRUST_SCORE_WEIGHT = 0.4
-
-# Stub trust score for Phase 11
-# TODO(Phase 22): Replace with real trust scores from Redis
-STUB_TRUST_SCORE = 1.0
+DEFAULT_TRUST_SCORE = 0.5
 
 
 async def select_trust_aware_node() -> NodeTarget | None:
@@ -23,10 +29,8 @@ async def select_trust_aware_node() -> NodeTarget | None:
     Routing Score = (predicted_load × 0.6) + ((1 - trust_score) × 0.4)
     Lowest score wins.
 
+    Quarantined nodes are completely excluded.
     When scores are tied, uses round-robin as tiebreaker.
-
-    Trust scores are currently stubbed at 1.0.
-    Real trust scoring will be integrated in Phase 22.
 
     Returns:
         NodeTarget for the best available node, or None if no nodes available.
@@ -39,10 +43,14 @@ async def select_trust_aware_node() -> NodeTarget | None:
         return None
 
     node_ids = sorted(raw_node_ids)
-
     scored_nodes: list[tuple[float, NodeTarget]] = []
 
     for node_id in node_ids:
+        # Check quarantine first — skip quarantined nodes entirely
+        if await is_node_quarantined(node_id):
+            logger.debug("Skipping quarantined node", node_id=node_id)
+            continue
+
         node_info_raw = await redis.get(f"node:{node_id}")
         if not node_info_raw:
             logger.warning("Skipping node with missing info", node_id=node_id)
@@ -54,11 +62,15 @@ async def select_trust_aware_node() -> NodeTarget | None:
             logger.warning("Skipping node with invalid info", node_id=node_id)
             continue
 
+        # Get real predicted load from ML service cache
         predicted_load = await get_cached_predicted_load(node_id)
 
-        # TODO(Phase 22): Replace stub with real trust score from Redis
-        trust_score = STUB_TRUST_SCORE
+        # Get real trust score from Redis
+        trust_raw = await redis.get(f"trust:{node_id}")
+        trust_score = float(trust_raw) if trust_raw else DEFAULT_TRUST_SCORE
+        trust_score = max(0.0, min(1.0, trust_score))
 
+        # Compute combined routing score
         combined_score = (
             predicted_load * PREDICTED_LOAD_WEIGHT
             + (1.0 - trust_score) * TRUST_SCORE_WEIGHT
@@ -82,18 +94,19 @@ async def select_trust_aware_node() -> NodeTarget | None:
         ))
 
     if not scored_nodes:
+        logger.warning("No eligible nodes for trust-aware routing")
         return None
 
     # Find minimum score
     min_score = min(score for score, _ in scored_nodes)
 
-    # Get all nodes with minimum score (ties)
+    # Collect all tied nodes
     tied_nodes = [
         node for score, node in scored_nodes
         if abs(score - min_score) < 1e-9
     ]
 
-    # Use round-robin counter as tiebreaker
+    # Use round-robin as tiebreaker
     if len(tied_nodes) == 1:
         selected = tied_nodes[0]
     else:
@@ -105,6 +118,7 @@ async def select_trust_aware_node() -> NodeTarget | None:
         "Trust-aware selected node",
         node_id=selected["node_id"],
         best_score=round(min_score, 3),
+        eligible_nodes=len(scored_nodes),
         tied_nodes=len(tied_nodes),
     )
 

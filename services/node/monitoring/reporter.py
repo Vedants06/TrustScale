@@ -11,6 +11,7 @@ from services.node.crypto.signer import sign_health_report
 from services.node.monitoring.metrics_collector import collect_metrics
 from shared.contracts.health_report import HealthReport
 from shared.utils.logger import get_logger
+from services.node.config.behavior_config import get_current_behavior
 
 logger = get_logger("reporter")
 
@@ -20,7 +21,20 @@ _reporter_task: asyncio.Task | None = None
 async def send_heartbeat() -> bool:
     """Send a signed health report to the load balancer."""
     try:
-        metrics = collect_metrics()
+        real_metrics = collect_metrics()
+
+        behavior = get_current_behavior()
+        metrics = behavior.apply(real_metrics)
+
+        logger.info(
+            "Behavior applied",
+            node_id=settings.node_id,
+            mode=behavior.name,
+            real_cpu=real_metrics.cpu_percent,
+            reported_cpu=metrics.cpu_percent,
+            real_response_ms=real_metrics.avg_response_time_ms,
+            reported_response_ms=metrics.avg_response_time_ms,
+        )
 
         report = HealthReport(
             node_id=settings.node_id,

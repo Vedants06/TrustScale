@@ -5,9 +5,10 @@ from contextlib import asynccontextmanager
 import aiohttp
 from fastapi import FastAPI
 
-from services.node.api.routes import health, work, metrics
+from services.node.api.routes import health, work, metrics, admin
 from services.node.config.settings import settings
 from services.node.crypto.keypair import initialize_keypair, get_public_key_pem
+from services.node.config.behavior_config import load_behavior_from_env
 from services.node.monitoring.reporter import start_reporter, stop_reporter
 from shared.utils.logger import get_logger
 
@@ -51,7 +52,14 @@ async def lifespan(app: FastAPI):
     logger.info(f"Node {settings.node_id} starting...")
 
     initialize_keypair()
-
+   
+    behavior = load_behavior_from_env()
+    logger.info(
+        "Behavior mode active",
+        node_id=settings.node_id,
+        mode=behavior.name,
+        intensity=behavior.intensity,
+    )
     # Warm up numpy BLAS on startup to avoid cold start delay
     logger.info("Warming up numpy BLAS...")
     import numpy as np
@@ -79,3 +87,4 @@ app = FastAPI(
 app.include_router(health.router)
 app.include_router(work.router)
 app.include_router(metrics.router)
+app.include_router(admin.router)

@@ -1,0 +1,1 @@
+"""Node behavior modes for Byzantine fault simulation."""

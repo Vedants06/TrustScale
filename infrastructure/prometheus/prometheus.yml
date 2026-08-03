@@ -30,31 +30,31 @@ scrape_configs:
   - job_name: node_4
     static_configs:
       - targets:
-          - node_3:8001
+          - node_4:8001
     metrics_path: /metrics 
 
   - job_name: node_5
     static_configs:
       - targets:
-          - node_3:8001
+          - node_5:8001
     metrics_path: /metrics
 
     - job_name: node_6
     static_configs:
       - targets:
-          - node_3:8001
+          - node_6:8001
     metrics_path: /metrics
 
     - job_name: node_7
     static_configs:
       - targets:
-          - node_3:8001
+          - node_7:8001
     metrics_path: /metrics
 
     - job_name: node_8
     static_configs:
       - targets:
-          - node_3:8001
+          - node_8:8001
     metrics_path: /metrics
 
   - job_name: ml_service

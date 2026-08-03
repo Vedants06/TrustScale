@@ -94,6 +94,101 @@ services:
       - load_balancer
     networks:
       - trustscale-network
+  
+  node_4:
+    build:
+      context: .
+      dockerfile: services/node/Dockerfile
+    container_name: trustscale-node-4
+    ports:
+      - "8004:8001"
+    environment:
+      - NODE_ID=node_4
+      - NODE_PORT=8001
+      - LB_URL=http://load_balancer:8000
+      - BEHAVIOR_MODE=honest
+      - BEHAVIOR_INTENSITY=0.5
+      - REPORT_INTERVAL_SECONDS=5
+    depends_on:
+      - load_balancer
+    networks:
+      - trustscale-network
+
+  node_5:
+    build:
+      context: .
+      dockerfile: services/node/Dockerfile
+    container_name: trustscale-node-5
+    ports:
+      - "8005:8001"
+    environment:
+      - NODE_ID=node_5
+      - NODE_PORT=8001
+      - LB_URL=http://load_balancer:8000
+      - BEHAVIOR_MODE=honest
+      - BEHAVIOR_INTENSITY=0.5
+      - REPORT_INTERVAL_SECONDS=5
+    depends_on:
+      - load_balancer
+    networks:
+      - trustscale-network
+
+  node_6:
+    build:
+      context: .
+      dockerfile: services/node/Dockerfile
+    container_name: trustscale-node-6
+    ports:
+      - "8006:8001"
+    environment:
+      - NODE_ID=node_6
+      - NODE_PORT=8001
+      - LB_URL=http://load_balancer:8000
+      - BEHAVIOR_MODE=honest
+      - BEHAVIOR_INTENSITY=0.5
+      - REPORT_INTERVAL_SECONDS=5
+    depends_on:
+      - load_balancer
+    networks:
+      - trustscale-network
+
+  node_7:
+    build:
+      context: .
+      dockerfile: services/node/Dockerfile
+    container_name: trustscale-node-7
+    ports:
+      - "8007:8001"
+    environment:
+      - NODE_ID=node_7
+      - NODE_PORT=8001
+      - LB_URL=http://load_balancer:8000
+      - BEHAVIOR_MODE=honest
+      - BEHAVIOR_INTENSITY=0.5
+      - REPORT_INTERVAL_SECONDS=5
+    depends_on:
+      - load_balancer
+    networks:
+      - trustscale-network
+
+  node_8:
+    build:
+      context: .
+      dockerfile: services/node/Dockerfile
+    container_name: trustscale-node-8
+    ports:
+      - "8008:8001"
+    environment:
+      - NODE_ID=node_8
+      - NODE_PORT=8001
+      - LB_URL=http://load_balancer:8000
+      - BEHAVIOR_MODE=honest
+      - BEHAVIOR_INTENSITY=0.5
+      - REPORT_INTERVAL_SECONDS=5
+    depends_on:
+      - load_balancer
+    networks:
+      - trustscale-network
 
   traffic_generator:
     build:

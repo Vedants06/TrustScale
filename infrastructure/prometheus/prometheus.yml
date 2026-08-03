@@ -26,12 +26,12 @@ scrape_configs:
       - targets:
           - node_3:8001
     metrics_path: /metrics
-  
+
   - job_name: node_4
     static_configs:
       - targets:
           - node_4:8001
-    metrics_path: /metrics 
+    metrics_path: /metrics
 
   - job_name: node_5
     static_configs:
@@ -39,19 +39,19 @@ scrape_configs:
           - node_5:8001
     metrics_path: /metrics
 
-    - job_name: node_6
+  - job_name: node_6
     static_configs:
       - targets:
           - node_6:8001
     metrics_path: /metrics
 
-    - job_name: node_7
+  - job_name: node_7
     static_configs:
       - targets:
           - node_7:8001
     metrics_path: /metrics
 
-    - job_name: node_8
+  - job_name: node_8
     static_configs:
       - targets:
           - node_8:8001

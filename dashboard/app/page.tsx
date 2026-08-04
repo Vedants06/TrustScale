@@ -1,13 +1,27 @@
 "use client";
 
+import { useState } from "react";
 import { NodeGrid } from "@/components/NodeGrid";
 import { ActionPanel } from "@/components/ActionPanel";
 import { ActivityLog } from "@/components/ActivityLog";
 import { SystemStatusBanner } from "@/components/SystemStatusBanner";
+import { NodeDetailModal } from "@/components/NodeDetailModal";
+import { TrafficFlow } from "@/components/TrafficFlow";
 import { useNodes } from "@/lib/hooks/useNodes";
+import { useTrustHistory } from "@/lib/hooks/useTrustHistory";
+import type { NodeTrustDetails } from "@/lib/types";
 
 export default function DashboardPage() {
   const { nodes, loading, error } = useNodes();
+  const history = useTrustHistory(nodes);
+  const [selectedNode, setSelectedNode] = useState<NodeTrustDetails | null>(
+    null,
+  );
+  const [trafficTrigger, setTrafficTrigger] = useState(0);
+
+  const handleTrafficSent = () => {
+    setTrafficTrigger((prev) => prev + 1);
+  };
 
   return (
     <main className="min-h-screen p-6">
@@ -41,12 +55,19 @@ export default function DashboardPage() {
             <SystemStatusBanner nodes={nodes} />
 
             <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-              <div className="space-y-6">
-                <NodeGrid nodes={nodes} />
+              <div className="relative space-y-6">
+                <div className="relative">
+                  <NodeGrid
+                    nodes={nodes}
+                    history={history}
+                    onNodeClick={setSelectedNode}
+                  />
+                  <TrafficFlow nodes={nodes} triggerCount={trafficTrigger} />
+                </div>
               </div>
 
               <div className="space-y-6">
-                <ActionPanel nodes={nodes} />
+                <ActionPanel nodes={nodes} onTrafficSent={handleTrafficSent} />
                 <div className="h-[400px]">
                   <ActivityLog />
                 </div>
@@ -54,6 +75,11 @@ export default function DashboardPage() {
             </div>
           </>
         )}
+
+        <NodeDetailModal
+          node={selectedNode}
+          onClose={() => setSelectedNode(null)}
+        />
       </div>
     </main>
   );

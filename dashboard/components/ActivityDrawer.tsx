@@ -10,14 +10,30 @@ interface ActivityDrawerProps {
   onClose: () => void;
 }
 
-function LevelDot({ level }: { level: LogLevel }) {
-  const colors: Record<LogLevel, string> = {
-    info: "bg-blue-500",
-    warn: "bg-amber-500",
-    error: "bg-red-500",
-    success: "bg-emerald-500",
+function levelColors(level: LogLevel) {
+  const map: Record<LogLevel, { bg: string; text: string; dot: string }> = {
+    info: {
+      bg: "bg-blue-500/10 border-blue-500/30",
+      text: "text-blue-400",
+      dot: "bg-blue-500",
+    },
+    warn: {
+      bg: "bg-amber-500/10 border-amber-500/30",
+      text: "text-amber-400",
+      dot: "bg-amber-500",
+    },
+    error: {
+      bg: "bg-red-500/10 border-red-500/30",
+      text: "text-red-400",
+      dot: "bg-red-500",
+    },
+    success: {
+      bg: "bg-emerald-500/10 border-emerald-500/30",
+      text: "text-emerald-400",
+      dot: "bg-emerald-500",
+    },
   };
-  return <span className={`h-2 w-2 flex-shrink-0 rounded-full ${colors[level]}`} />;
+  return map[level];
 }
 
 function formatTime(timestamp: number): string {
@@ -77,27 +93,35 @@ export function ActivityDrawer({ open, onClose }: ActivityDrawerProps) {
 
         <div className="h-[calc(100vh-60px)] overflow-y-auto p-4">
           {entries.length === 0 ? (
-            <p className="text-center text-sm text-muted-foreground pt-8">
+            <p className="pt-8 text-center text-sm text-muted-foreground">
               No activity yet
             </p>
           ) : (
             <div className="space-y-2">
-              {entries.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="flex items-start gap-3 rounded-md bg-background/50 p-2.5 text-sm"
-                >
-                  <div className="mt-1.5">
-                    <LevelDot level={entry.level} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-mono text-xs text-muted-foreground">
-                      {formatTime(entry.timestamp)}
+              {entries.map((entry) => {
+                const colors = levelColors(entry.level);
+                return (
+                  <div
+                    key={entry.id}
+                    className={`flex items-start gap-3 rounded-md border p-2.5 text-sm ${colors.bg}`}
+                  >
+                    <div className="mt-1.5">
+                      <span className={`h-2 w-2 flex-shrink-0 rounded-full block ${colors.dot}`} />
                     </div>
-                    <p className="mt-0.5 text-sm break-words">{entry.message}</p>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className={`font-mono text-xs ${colors.text}`}>
+                          {formatTime(entry.timestamp)}
+                        </span>
+                        <span className={`text-xs font-semibold uppercase ${colors.text}`}>
+                          {entry.level}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm break-words">{entry.message}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

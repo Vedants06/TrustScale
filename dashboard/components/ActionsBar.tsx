@@ -14,7 +14,6 @@ import type {
 
 interface ActionsBarProps {
   nodes: NodeTrustDetails[];
-  onTrafficSent?: () => void;
 }
 
 const BEHAVIOR_OPTIONS: { value: BehaviorMode; label: string }[] = [
@@ -24,7 +23,7 @@ const BEHAVIOR_OPTIONS: { value: BehaviorMode; label: string }[] = [
   { value: "colluder", label: "Colluder" },
 ];
 
-export function ActionsBar({ nodes, onTrafficSent }: ActionsBarProps) {
+export function ActionsBar({ nodes }: ActionsBarProps) {
   const [scenarios, setScenarios] = useState<ScenarioConfig[]>([]);
   const [selectedScenario, setSelectedScenario] = useState<string>("");
   const [selectedNode, setSelectedNode] = useState<string>("");
@@ -78,7 +77,6 @@ export function ActionsBar({ nodes, onTrafficSent }: ActionsBarProps) {
     setIsSending(true);
     try {
       addLog("Sending traffic burst (20 requests)", "info");
-      onTrafficSent?.();
       await api.sendWork(300, 20);
       toast.success("Traffic burst sent");
       addLog("Traffic burst completed", "success");
@@ -101,7 +99,6 @@ export function ActionsBar({ nodes, onTrafficSent }: ActionsBarProps) {
       );
 
       if (selectedBehavior !== "honest") {
-        onTrafficSent?.();
         await api.sendWork(300, 30);
         addLog("Auto-traffic sent to trigger detection", "info");
       }

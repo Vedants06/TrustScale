@@ -19,12 +19,7 @@ export default function DashboardPage() {
   const [selectedNode, setSelectedNode] = useState<NodeTrustDetails | null>(
     null,
   );
-  const [trafficTrigger, setTrafficTrigger] = useState(0);
   const [logOpen, setLogOpen] = useState(false);
-
-  const handleTrafficSent = () => {
-    setTrafficTrigger((prev) => prev + 1);
-  };
 
   return (
     <main className="min-h-screen p-6">
@@ -63,12 +58,11 @@ export default function DashboardPage() {
                 nodes={nodes}
                 requestRate={rate}
                 totalRequests={total}
-                trafficTrigger={trafficTrigger}
                 onNodeClick={setSelectedNode}
               />
             </div>
 
-            <ActionsBar nodes={nodes} onTrafficSent={handleTrafficSent} />
+            <ActionsBar nodes={nodes} />
           </>
         )}
 

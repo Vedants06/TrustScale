@@ -5,6 +5,7 @@ from services.node.behavior.base import BaseBehavior
 from services.node.behavior.honest import HonestBehavior
 from services.node.behavior.under_reporter import UnderReporterBehavior
 from services.node.behavior.over_reporter import OverReporterBehavior
+from services.node.behavior.colluder import ColluderBehavior
 
 logger = structlog.get_logger()
 
@@ -12,6 +13,7 @@ BEHAVIOR_REGISTRY = {
     "honest": HonestBehavior,
     "under_reporter": UnderReporterBehavior,
     "over_reporter": OverReporterBehavior,
+    "colluder": ColluderBehavior,
 }
 
 _current_behavior: BaseBehavior = HonestBehavior(intensity=0.0)

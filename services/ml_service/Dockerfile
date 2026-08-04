@@ -2,10 +2,13 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
-# Install dependencies
+# Install dependencies with extra timeout for large packages like torch
 COPY services/ml_service/requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --timeout 600 \
+    --index-url https://download.pytorch.org/whl/cpu \
+    --extra-index-url https://pypi.org/simple \
+    torch && \
+    pip install --no-cache-dir --timeout 600 -r requirements.txt
 
 # Copy shared package
 COPY shared/ ./shared/

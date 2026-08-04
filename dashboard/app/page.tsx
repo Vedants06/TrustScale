@@ -1,23 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import { NodeGrid } from "@/components/NodeGrid";
-import { ActionPanel } from "@/components/ActionPanel";
-import { ActivityLog } from "@/components/ActivityLog";
+import { TopologyView } from "@/components/TopologyView";
+import { ActionsBar } from "@/components/ActionsBar";
 import { SystemStatusBanner } from "@/components/SystemStatusBanner";
 import { NodeDetailModal } from "@/components/NodeDetailModal";
-import { TrafficFlow } from "@/components/TrafficFlow";
+import {
+  ActivityDrawer,
+  ActivityDrawerToggle,
+} from "@/components/ActivityDrawer";
 import { useNodes } from "@/lib/hooks/useNodes";
-import { useTrustHistory } from "@/lib/hooks/useTrustHistory";
+import { useRequestRate } from "@/lib/hooks/useRequestRate";
 import type { NodeTrustDetails } from "@/lib/types";
 
 export default function DashboardPage() {
   const { nodes, loading, error } = useNodes();
-  const history = useTrustHistory(nodes);
+  const { rate, total } = useRequestRate(nodes);
   const [selectedNode, setSelectedNode] = useState<NodeTrustDetails | null>(
     null,
   );
   const [trafficTrigger, setTrafficTrigger] = useState(0);
+  const [logOpen, setLogOpen] = useState(false);
 
   const handleTrafficSent = () => {
     setTrafficTrigger((prev) => prev + 1);
@@ -33,13 +36,14 @@ export default function DashboardPage() {
               Byzantine-aware distributed load balancer
             </p>
           </div>
+          <ActivityDrawerToggle onClick={() => setLogOpen(true)} />
         </header>
 
         {error && (
           <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
             <p className="text-sm text-destructive">Error: {error}</p>
             <p className="mt-2 text-xs text-muted-foreground">
-              Make sure the backend is running at http://localhost:8000
+              Make sure backend is running at http://localhost:8000
             </p>
           </div>
         )}
@@ -54,25 +58,17 @@ export default function DashboardPage() {
           <>
             <SystemStatusBanner nodes={nodes} />
 
-            <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-              <div className="relative space-y-6">
-                <div className="relative">
-                  <NodeGrid
-                    nodes={nodes}
-                    history={history}
-                    onNodeClick={setSelectedNode}
-                  />
-                  <TrafficFlow nodes={nodes} triggerCount={trafficTrigger} />
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                <ActionPanel nodes={nodes} onTrafficSent={handleTrafficSent} />
-                <div className="h-[400px]">
-                  <ActivityLog />
-                </div>
-              </div>
+            <div className="rounded-lg border border-border bg-card p-8">
+              <TopologyView
+                nodes={nodes}
+                requestRate={rate}
+                totalRequests={total}
+                trafficTrigger={trafficTrigger}
+                onNodeClick={setSelectedNode}
+              />
             </div>
+
+            <ActionsBar nodes={nodes} onTrafficSent={handleTrafficSent} />
           </>
         )}
 
@@ -80,6 +76,8 @@ export default function DashboardPage() {
           node={selectedNode}
           onClose={() => setSelectedNode(null)}
         />
+
+        <ActivityDrawer open={logOpen} onClose={() => setLogOpen(false)} />
       </div>
     </main>
   );

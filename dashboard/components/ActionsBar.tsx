@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { Play, Zap, Shuffle, RotateCcw, Settings } from "lucide-react";
 import { api } from "@/lib/api";
 import { useActivityLog } from "@/lib/hooks/useActivityLog";
 import type {
@@ -11,19 +12,19 @@ import type {
   ScenarioConfig,
 } from "@/lib/types";
 
-interface ActionPanelProps {
+interface ActionsBarProps {
   nodes: NodeTrustDetails[];
   onTrafficSent?: () => void;
 }
 
 const BEHAVIOR_OPTIONS: { value: BehaviorMode; label: string }[] = [
-  { value: "honest", label: "Honest (reset)" },
-  { value: "under_reporter", label: "Under-Reporter" },
-  { value: "over_reporter", label: "Over-Reporter" },
+  { value: "honest", label: "Honest" },
+  { value: "under_reporter", label: "Under-Report" },
+  { value: "over_reporter", label: "Over-Report" },
   { value: "colluder", label: "Colluder" },
 ];
 
-export function ActionPanel({ nodes, onTrafficSent }: ActionPanelProps) {
+export function ActionsBar({ nodes, onTrafficSent }: ActionsBarProps) {
   const [scenarios, setScenarios] = useState<ScenarioConfig[]>([]);
   const [selectedScenario, setSelectedScenario] = useState<string>("");
   const [selectedNode, setSelectedNode] = useState<string>("");
@@ -33,24 +34,24 @@ export function ActionPanel({ nodes, onTrafficSent }: ActionPanelProps) {
   const [strategy, setStrategy] = useState<RoutingStrategy>("trust_aware");
   const [isSending, setIsSending] = useState(false);
   const [scenarioRunning, setScenarioRunning] = useState(false);
-  const [runningScenarioName, setRunningScenarioName] = useState<string>("");
 
   const addLog = useActivityLog((s) => s.addEntry);
 
   useEffect(() => {
-    async function fetchScenarios() {
+    async function init() {
       try {
         const list = await api.listScenarios();
         setScenarios(list);
-        if (list.length > 0 && !selectedScenario) {
-          setSelectedScenario(list[0].scenario_id);
-        }
-      } catch (err) {
-        console.error("Failed to load scenarios", err);
+        if (list.length > 0) setSelectedScenario(list[0].scenario_id);
+
+        const s = await api.getRoutingStrategy();
+        setStrategy(s);
+      } catch {
+        // ignore
       }
     }
-    fetchScenarios();
-  }, [selectedScenario]);
+    init();
+  }, []);
 
   useEffect(() => {
     if (nodes.length > 0 && !selectedNode) {
@@ -59,24 +60,11 @@ export function ActionPanel({ nodes, onTrafficSent }: ActionPanelProps) {
   }, [nodes, selectedNode]);
 
   useEffect(() => {
-    async function fetchStrategy() {
-      try {
-        const s = await api.getRoutingStrategy();
-        setStrategy(s);
-      } catch {
-        // ignore
-      }
-    }
-    fetchStrategy();
-  }, []);
-
-  useEffect(() => {
     async function checkStatus() {
       try {
         const response = await fetch("http://localhost:8200/scenarios/status");
         const data = await response.json();
         setScenarioRunning(data.is_running);
-        setRunningScenarioName(data.running_scenario || "");
       } catch {
         // ignore
       }
@@ -97,7 +85,6 @@ export function ActionPanel({ nodes, onTrafficSent }: ActionPanelProps) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error";
       toast.error(`Traffic failed: ${msg}`);
-      addLog(`Traffic failed: ${msg}`, "error");
     } finally {
       setIsSending(false);
     }
@@ -109,20 +96,17 @@ export function ActionPanel({ nodes, onTrafficSent }: ActionPanelProps) {
       await api.setNodeBehavior(selectedNode, selectedBehavior, intensity);
       toast.success(`${selectedNode} → ${selectedBehavior}`);
       addLog(
-        `Attack triggered: ${selectedNode} → ${selectedBehavior} (intensity ${intensity})`,
+        `${selectedNode} set to ${selectedBehavior} (intensity ${intensity})`,
         "warn",
       );
 
       if (selectedBehavior !== "honest") {
-        addLog("Auto-sending traffic to trigger detection...", "info");
         onTrafficSent?.();
         await api.sendWork(300, 30);
-        addLog("Traffic sent — watch dashboard for trust changes", "info");
+        addLog("Auto-traffic sent to trigger detection", "info");
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Unknown error";
-      toast.error(`Attack failed: ${msg}`);
-      addLog(`Attack failed: ${msg}`, "error");
+      toast.error(`Attack failed`);
     }
   }
 
@@ -130,12 +114,10 @@ export function ActionPanel({ nodes, onTrafficSent }: ActionPanelProps) {
     try {
       const nodeIds = nodes.map((n) => n.node_id);
       await api.resetAllNodes(nodeIds);
-      toast.success("All nodes reset to honest");
+      toast.success("All nodes reset");
       addLog(`Reset all ${nodeIds.length} nodes to honest`, "success");
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Unknown error";
-      toast.error(`Reset failed: ${msg}`);
-      addLog(`Reset failed: ${msg}`, "error");
+    } catch {
+      toast.error("Reset failed");
     }
   }
 
@@ -144,17 +126,10 @@ export function ActionPanel({ nodes, onTrafficSent }: ActionPanelProps) {
     try {
       await api.runScenario(selectedScenario, 1);
       const scenario = scenarios.find((s) => s.scenario_id === selectedScenario);
-      toast.success(`Scenario started: ${scenario?.name || selectedScenario}`);
-      addLog(
-        `Scenario running: ${scenario?.name || selectedScenario} (${
-          scenario?.duration_seconds || "?"
-        }s)`,
-        "info",
-      );
+      toast.success(`Scenario: ${scenario?.name}`);
+      addLog(`Scenario started: ${scenario?.name}`, "info");
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Unknown error";
-      toast.error(`Scenario failed: ${msg}`);
-      addLog(`Scenario failed: ${msg}`, "error");
+      toast.error(`Scenario failed`);
     }
   }
 
@@ -165,39 +140,37 @@ export function ActionPanel({ nodes, onTrafficSent }: ActionPanelProps) {
       await api.setRoutingStrategy(newStrategy);
       setStrategy(newStrategy);
       toast.success(`Strategy: ${newStrategy}`);
-      addLog(`Routing strategy changed to: ${newStrategy}`, "info");
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Unknown error";
-      toast.error(`Strategy change failed: ${msg}`);
+      addLog(`Strategy changed to ${newStrategy}`, "info");
+    } catch {
+      toast.error("Strategy change failed");
     }
   }
 
   return (
-    <div className="space-y-4 rounded-lg border border-border bg-card p-6">
-      <h2 className="text-lg font-semibold">Actions</h2>
-
-      <div className="space-y-3">
+    <div className="rounded-lg border border-border bg-card p-4">
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Send Traffic */}
         <button
           onClick={handleSendTraffic}
           disabled={isSending}
-          className="w-full rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+          className="flex items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
         >
-          {isSending ? "Sending..." : "Send Traffic Burst"}
+          <Zap className="h-4 w-4" />
+          {isSending ? "Sending..." : "Send Traffic"}
         </button>
 
-        <div className="space-y-2 rounded-md border border-border bg-background/50 p-3">
-          <label className="text-xs font-medium text-muted-foreground">
-            Attack a Node
-          </label>
+        <div className="h-8 w-px bg-border" />
 
+        {/* Attack Node */}
+        <div className="flex items-center gap-2">
           <select
             value={selectedNode}
             onChange={(e) => setSelectedNode(e.target.value)}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+            className="rounded-md border border-border bg-background px-3 py-2 text-sm"
           >
             {nodes.map((n) => (
               <option key={n.node_id} value={n.node_id}>
-                {n.node_id}
+                {n.node_id.replace("node_", "Node ")}
               </option>
             ))}
           </select>
@@ -205,7 +178,7 @@ export function ActionPanel({ nodes, onTrafficSent }: ActionPanelProps) {
           <select
             value={selectedBehavior}
             onChange={(e) => setSelectedBehavior(e.target.value as BehaviorMode)}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+            className="rounded-md border border-border bg-background px-3 py-2 text-sm"
           >
             {BEHAVIOR_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -214,7 +187,7 @@ export function ActionPanel({ nodes, onTrafficSent }: ActionPanelProps) {
             ))}
           </select>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2">
             <input
               type="range"
               min="0.1"
@@ -222,68 +195,64 @@ export function ActionPanel({ nodes, onTrafficSent }: ActionPanelProps) {
               step="0.1"
               value={intensity}
               onChange={(e) => setIntensity(Number(e.target.value))}
-              className="flex-1"
+              className="w-20"
             />
-            <span className="w-10 text-right text-xs text-muted-foreground">
+            <span className="w-8 text-right text-xs font-mono">
               {intensity.toFixed(1)}
             </span>
           </div>
 
           <button
             onClick={handleAttackNode}
-            className="w-full rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700"
+            className="flex items-center gap-2 rounded-md bg-amber-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-amber-700"
           >
-            Apply Behavior
+            Apply
           </button>
         </div>
 
-        <div className="space-y-2 rounded-md border border-border bg-background/50 p-3">
-          <label className="text-xs font-medium text-muted-foreground">
-            Run Scenario
-          </label>
+        <div className="h-8 w-px bg-border" />
+
+        {/* Scenario */}
+        <div className="flex items-center gap-2">
           <select
             value={selectedScenario}
             onChange={(e) => setSelectedScenario(e.target.value)}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+            className="rounded-md border border-border bg-background px-3 py-2 text-sm max-w-64"
           >
             {scenarios.map((s) => (
               <option key={s.scenario_id} value={s.scenario_id}>
-                {s.name} {s.defense_enabled ? "" : "(no defense)"}
+                {s.name}
               </option>
             ))}
           </select>
 
-          {selectedScenario && (
-            <p className="text-xs text-muted-foreground">
-              {scenarios.find((s) => s.scenario_id === selectedScenario)
-                ?.description}
-            </p>
-          )}
-
           <button
             onClick={handleRunScenario}
             disabled={scenarioRunning}
-            className="w-full rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex items-center gap-2 rounded-md bg-purple-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-purple-700 disabled:opacity-50"
           >
-            {scenarioRunning
-              ? `Running: ${runningScenarioName}...`
-              : "Run Scenario"}
+            <Play className="h-4 w-4" />
+            {scenarioRunning ? "Running..." : "Run Scenario"}
           </button>
         </div>
 
-        <button
-          onClick={handleToggleStrategy}
-          className="w-full rounded-md border border-border bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-secondary"
-        >
-          Strategy: {strategy === "trust_aware" ? "Trust-Aware" : "Round-Robin"}
-        </button>
+        <div className="ml-auto flex items-center gap-3">
+          <button
+            onClick={handleToggleStrategy}
+            className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium transition-colors hover:bg-secondary"
+          >
+            <Shuffle className="h-4 w-4" />
+            {strategy === "trust_aware" ? "Trust-Aware" : "Round-Robin"}
+          </button>
 
-        <button
-          onClick={handleResetAll}
-          className="w-full rounded-md border border-red-500/50 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/20"
-        >
-          Reset All Nodes
-        </button>
+          <button
+            onClick={handleResetAll}
+            className="flex items-center gap-2 rounded-md border border-red-500/50 bg-red-500/10 px-3 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/20"
+          >
+            <RotateCcw className="h-4 w-4" />
+            Reset All
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import yaml
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi import APIRouter, BackgroundTasks, FastAPI, HTTPException
 from pydantic import BaseModel
 
@@ -83,6 +84,15 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 router = APIRouter()
 
@@ -239,6 +249,63 @@ async def run_scenario_endpoint(
         "repetition_number": request.repetition_number,
         "message": "Scenario running in background",
     }
+
+
+@router.get("/experiments")
+async def list_experiments():
+    """List all past scenario runs from research/data/experiments/."""
+    experiments_dir = Path("research/data/experiments")
+
+    if not experiments_dir.exists():
+        return {"experiments": []}
+
+    experiments = []
+    for scenario_dir in experiments_dir.iterdir():
+        if not scenario_dir.is_dir():
+            continue
+
+        scenario_id = scenario_dir.name
+        result_files = sorted(scenario_dir.glob("rep*.json"))
+
+        for result_file in result_files:
+            try:
+                with open(result_file) as f:
+                    import json as json_lib
+                    data = json_lib.load(f)
+
+                experiments.append({
+                    "scenario_id": scenario_id,
+                    "file_name": result_file.name,
+                    "repetition_number": data.get("repetition_number"),
+                    "started_at": data.get("started_at"),
+                    "detection_time_seconds": data.get("detection_time_seconds"),
+                    "success_rate": data.get("success_rate"),
+                    "nodes_quarantined": data.get("nodes_quarantined", []),
+                })
+            except Exception:
+                continue
+
+    experiments.sort(
+        key=lambda x: x.get("started_at", 0),
+        reverse=True,
+    )
+
+    return {"experiments": experiments}
+
+
+@router.get("/experiments/{scenario_id}/{file_name}")
+async def get_experiment(scenario_id: str, file_name: str):
+    """Get details of a specific past scenario run."""
+    file_path = Path("research/data/experiments") / scenario_id / file_name
+
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Experiment not found")
+
+    with open(file_path) as f:
+        import json as json_lib
+        data = json_lib.load(f)
+
+    return data
 
 
 app.include_router(router)

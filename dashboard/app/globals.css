@@ -1,0 +1,101 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --color-background: hsl(240 10% 4%);
+  --color-foreground: hsl(0 0% 100%);
+  --color-card: hsl(240 8% 8%);
+  --color-card-foreground: hsl(0 0% 100%);
+  --color-popover: hsl(240 8% 8%);
+  --color-popover-foreground: hsl(0 0% 100%);
+  --color-primary: hsl(217 91% 60%);
+  --color-primary-foreground: hsl(0 0% 100%);
+  --color-secondary: hsl(240 6% 15%);
+  --color-secondary-foreground: hsl(0 0% 100%);
+  --color-muted: hsl(240 6% 15%);
+  --color-muted-foreground: hsl(240 4% 60%);
+  --color-accent: hsl(240 6% 15%);
+  --color-accent-foreground: hsl(0 0% 100%);
+  --color-destructive: hsl(0 84% 60%);
+  --color-destructive-foreground: hsl(0 0% 100%);
+  --color-border: hsl(240 6% 18%);
+  --color-input: hsl(240 6% 18%);
+  --color-ring: hsl(217 91% 60%);
+
+  --color-trust-healthy: #10b981;
+  --color-trust-good: #3b82f6;
+  --color-trust-warning: #f59e0b;
+  --color-trust-danger: #ef4444;
+
+  --radius: 0.5rem;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+}
+
+:root {
+  --background: hsl(240 10% 4%);
+  --foreground: hsl(0 0% 100%);
+  --card: hsl(240 8% 8%);
+  --card-foreground: hsl(0 0% 100%);
+  --popover: hsl(240 8% 8%);
+  --popover-foreground: hsl(0 0% 100%);
+  --primary: hsl(217 91% 60%);
+  --primary-foreground: hsl(0 0% 100%);
+  --secondary: hsl(240 6% 15%);
+  --secondary-foreground: hsl(0 0% 100%);
+  --muted: hsl(240 6% 15%);
+  --muted-foreground: hsl(240 4% 60%);
+  --accent: hsl(240 6% 15%);
+  --accent-foreground: hsl(0 0% 100%);
+  --destructive: hsl(0 84% 60%);
+  --destructive-foreground: hsl(0 0% 100%);
+  --border: hsl(240 6% 18%);
+  --input: hsl(240 6% 18%);
+  --ring: hsl(217 91% 60%);
+}
+
+.dark {
+  --background: hsl(240 10% 4%);
+  --foreground: hsl(0 0% 100%);
+  --card: hsl(240 8% 8%);
+  --card-foreground: hsl(0 0% 100%);
+  --popover: hsl(240 8% 8%);
+  --popover-foreground: hsl(0 0% 100%);
+  --primary: hsl(217 91% 60%);
+  --primary-foreground: hsl(0 0% 100%);
+  --secondary: hsl(240 6% 15%);
+  --secondary-foreground: hsl(0 0% 100%);
+  --muted: hsl(240 6% 15%);
+  --muted-foreground: hsl(240 4% 60%);
+  --accent: hsl(240 6% 15%);
+  --accent-foreground: hsl(0 0% 100%);
+  --destructive: hsl(0 84% 60%);
+  --destructive-foreground: hsl(0 0% 100%);
+  --border: hsl(240 6% 18%);
+  --input: hsl(240 6% 18%);
+  --ring: hsl(217 91% 60%);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+@layer utilities {
+  .glass {
+    background: rgba(20, 20, 26, 0.6);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+}

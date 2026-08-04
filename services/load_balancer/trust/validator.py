@@ -264,16 +264,15 @@ async def cross_validate_heartbeat(
     else:
         load_difference = observed_load - claimed_load
 
-        if load_difference <= 0:
-            # Claimed >= observed (over-reporter or honest)
-            # Over-reporting is also a form of lying
-            if abs(load_difference) > observed_load * 0.5:
-                discrepancy = min(abs(load_difference) / max(observed_load, 0.01), 2.0)
-            else:
-                discrepancy = 0.0
+        # Compute discrepancy for both directions
+        if observed_load < 0.01 and claimed_load < 0.01:
+            # Both near zero — no discrepancy
+            discrepancy = 0.0
         else:
-            # Claimed < observed (under-reporter)
-            discrepancy = min(load_difference / max(observed_load, 0.01), 2.0)
+            # Symmetric discrepancy: over or under reporting both count
+            max_load = max(observed_load, claimed_load, 0.01)
+            discrepancy = abs(observed_load - claimed_load) / max_load
+            discrepancy = min(discrepancy, 2.0)
 
     logger.info(
         "Cross-validation result",

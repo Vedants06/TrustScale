@@ -1,2 +1,6 @@
 scenario_id,repetition_number,random_seed,started_at,duration_seconds,total_requests,successful_requests,failed_requests,success_rate,avg_latency_ms,p95_latency_ms,detection_time_seconds,nodes_quarantined
 byzantine_20pct,1,2001,1785836474.2686536,277.82,419,419,0,1.0,80.48,124.67,67.48,"['node_1', 'node_5']"
+byzantine_20pct,1,2001,1785846236.9555535,738.86,386,386,0,1.0,80.68,119.3,66.78,"['node_5', 'node_1']"
+byzantine_20pct,1,2001,1785847291.9750292,277.58,400,400,0,1.0,92.37,135.8,7.31,"['node_1', 'node_5']"
+byzantine_20pct,1,2001,1785848405.7352471,277.66,411,411,0,1.0,74.73,104.91,66.8,"['node_5', 'node_1']"
+byzantine_20pct,1,2001,1785851723.2141452,277.45,398,398,0,1.0,77.35,114.82,69.87,"['node_1', 'node_5']"

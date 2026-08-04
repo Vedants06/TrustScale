@@ -1,0 +1,39 @@
+{
+  "scenario_id": "byzantine_20pct",
+  "repetition_number": 1,
+  "random_seed": 2001,
+  "started_at": 1785846236.9555535,
+  "completed_at": 1785846975.8120916,
+  "duration_seconds": 738.86,
+  "total_requests": 386,
+  "successful_requests": 386,
+  "failed_requests": 0,
+  "success_rate": 1.0,
+  "avg_latency_ms": 80.68,
+  "p95_latency_ms": 119.3,
+  "detection_time_seconds": 66.78,
+  "nodes_quarantined": [
+    "node_5",
+    "node_1"
+  ],
+  "initial_trust_scores": {
+    "node_1": 1.0,
+    "node_2": 0.9,
+    "node_3": 1.0,
+    "node_4": 0.9,
+    "node_5": 0.906546,
+    "node_6": 0.9,
+    "node_7": 1.0,
+    "node_8": 1.0
+  },
+  "final_trust_scores": {
+    "node_1": 0.0,
+    "node_2": 1.0,
+    "node_3": 1.0,
+    "node_4": 1.0,
+    "node_5": 0.0,
+    "node_6": 1.0,
+    "node_7": 1.0,
+    "node_8": 1.0
+  }
+}

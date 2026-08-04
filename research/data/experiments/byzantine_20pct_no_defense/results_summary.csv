@@ -1,0 +1,2 @@
+scenario_id,repetition_number,random_seed,started_at,duration_seconds,total_requests,successful_requests,failed_requests,success_rate,avg_latency_ms,p95_latency_ms,detection_time_seconds,nodes_quarantined
+byzantine_20pct_no_defense,1,2001,1785851011.0282388,278.27,408,408,0,1.0,76.97,107.28,,[]

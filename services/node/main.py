@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 import aiohttp
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from services.node.api.routes import health, work, metrics, admin
 from services.node.config.settings import settings
@@ -52,7 +53,7 @@ async def lifespan(app: FastAPI):
     logger.info(f"Node {settings.node_id} starting...")
 
     initialize_keypair()
-   
+
     behavior = load_behavior_from_env()
     logger.info(
         "Behavior mode active",
@@ -60,12 +61,10 @@ async def lifespan(app: FastAPI):
         mode=behavior.name,
         intensity=behavior.intensity,
     )
-    # Warm up numpy BLAS on startup to avoid cold start delay
+
     logger.info("Warming up numpy BLAS...")
     import numpy as np
-    A = np.random.rand(10, 10).astype(np.float32)
-    B = np.random.rand(10, 10).astype(np.float32)
-    _ = np.dot(A, B)
+    _ = np.random.rand(10, 10) @ np.random.rand(10, 10)
     logger.info("Numpy BLAS warmed up")
 
     await register_with_lb()
@@ -82,6 +81,14 @@ app = FastAPI(
     description="Worker node for TrustScale cluster",
     version="0.1.0",
     lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(health.router)

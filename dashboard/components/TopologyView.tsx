@@ -6,6 +6,7 @@ import { NodeOrbit } from "./NodeOrbit";
 import { ConnectionLine } from "./ConnectionLine";
 import { TrafficParticle } from "./TrafficParticle";
 import { useTrafficDetection } from "@/lib/hooks/useTrafficDetection";
+import { useActiveConnections } from "@/lib/hooks/useActiveConnections";
 import type { NodeTrustDetails } from "@/lib/types";
 
 interface TopologyViewProps {
@@ -17,7 +18,7 @@ interface TopologyViewProps {
 
 const CONTAINER_SIZE = 700;
 const CENTER = CONTAINER_SIZE / 2;
-const ORBIT_RADIUS = 260;
+const ORBIT_RADIUS = 250;
 const HUB_RADIUS = 80;
 const NODE_RADIUS = 40;
 
@@ -28,6 +29,7 @@ export function TopologyView({
   onNodeClick,
 }: TopologyViewProps) {
   const trafficEvents = useTrafficDetection(nodes);
+  const activeConnections = useActiveConnections(nodes);
 
   const nodePositions = useMemo(() => {
     const positions: Record<string, { x: number; y: number }> = {};
@@ -45,8 +47,6 @@ export function TopologyView({
   }, [nodes]);
 
   const activeNodes = nodes.filter((n) => !n.quarantine.is_quarantined).length;
-
-  const activeConnections = new Set(trafficEvents.map((e) => e.nodeId));
 
   return (
     <div

@@ -30,6 +30,8 @@ export interface BootstrapStatus {
 export interface CrossValidationResult {
   claimed_load: number;
   claimed_response_time: number;
+  claimed_requests_5s?: number;
+  observed_load?: number;
   expected_observed?: number;
   tolerance?: number;
   observed_avg: number | null;

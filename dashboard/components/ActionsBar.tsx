@@ -150,7 +150,7 @@ export function ActionsBar({ nodes }: ActionsBarProps) {
         <button
           onClick={handleSendTraffic}
           disabled={isSending}
-          className="flex items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+          className="flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
         >
           <Zap className="h-4 w-4" />
           {isSending ? "Sending..." : "Send Traffic"}
@@ -201,7 +201,7 @@ export function ActionsBar({ nodes }: ActionsBarProps) {
 
           <button
             onClick={handleAttackNode}
-            className="flex items-center gap-2 rounded-md bg-amber-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-amber-700"
+            className="flex items-center gap-2 rounded-md bg-amber-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-amber-700"
           >
             Apply
           </button>
@@ -226,7 +226,7 @@ export function ActionsBar({ nodes }: ActionsBarProps) {
           <button
             onClick={handleRunScenario}
             disabled={scenarioRunning}
-            className="flex items-center gap-2 rounded-md bg-purple-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-purple-700 disabled:opacity-50"
+            className="flex items-center gap-2 rounded-md bg-purple-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-700 disabled:opacity-50"
           >
             <Play className="h-4 w-4" />
             {scenarioRunning ? "Running..." : "Run Scenario"}

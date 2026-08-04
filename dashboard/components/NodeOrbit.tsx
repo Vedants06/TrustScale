@@ -44,33 +44,37 @@ export function NodeOrbit({ node, x, y, onClick }: NodeOrbitProps) {
   return (
     <button
       onClick={onClick}
-      className="absolute flex flex-col items-center transition-transform hover:scale-110"
+      className="absolute transition-transform hover:scale-110"
       style={{
         left: `${x}px`,
         top: `${y}px`,
         transform: "translate(-50%, -50%)",
       }}
     >
-      <div
-        data-node-id={node.node_id}
-        className={`relative flex h-20 w-20 items-center justify-center rounded-full border-2 ${borderColor} ${bgColor} shadow-lg transition-all ${
-          isQuarantined ? "opacity-40" : ""
-        }`}
-      >
-        <span className={`text-3xl font-bold ${trustColor}`}>{nodeNumber}</span>
+      <div className="relative">
+        <div
+          data-node-id={node.node_id}
+          className={`relative flex h-20 w-20 items-center justify-center rounded-full border-2 ${borderColor} ${bgColor} shadow-lg transition-all ${
+            isQuarantined ? "opacity-40" : ""
+          }`}
+        >
+          <span className={`text-3xl font-bold ${trustColor}`}>{nodeNumber}</span>
 
-        {isQuarantined && (
-          <div className="absolute -top-2 -right-2 h-6 w-6 rounded-full border-2 border-background bg-red-500 text-xs font-bold text-white flex items-center justify-center">
-            ×
-          </div>
-        )}
-      </div>
-
-      <div className="mt-2 text-center">
-        <div className={`text-sm font-semibold ${trustColor}`}>
-          {trust.toFixed(2)}
+          {isQuarantined && (
+            <div className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-red-500 text-xs font-bold text-white">
+              ×
+            </div>
+          )}
         </div>
-        <div className="text-xs text-muted-foreground">node {nodeNumber}</div>
+
+        <div className="absolute left-1/2 top-full mt-2 -translate-x-1/2 whitespace-nowrap text-center">
+          <div className={`text-sm font-semibold ${trustColor}`}>
+            {trust.toFixed(2)}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            node {nodeNumber}
+          </div>
+        </div>
       </div>
     </button>
   );

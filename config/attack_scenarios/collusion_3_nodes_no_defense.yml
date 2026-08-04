@@ -1,0 +1,30 @@
+scenario_id: collusion_3_nodes_no_defense
+name: 3-Node Collusion Attack (No Defense)
+description: >
+  Baseline for degradation curve — same collusion as collusion_3_nodes
+  but with defense disabled.
+
+total_nodes: 8
+target_nodes:
+  - node_id: node_2
+    behavior: colluder
+    intensity: 0.7
+    start_at_seconds: 15
+    duration_seconds: 240
+
+  - node_id: node_4
+    behavior: colluder
+    intensity: 0.7
+    start_at_seconds: 15
+    duration_seconds: 240
+
+  - node_id: node_6
+    behavior: colluder
+    intensity: 0.7
+    start_at_seconds: 15
+    duration_seconds: 240
+
+traffic_pattern: steady_state
+scenario_duration_seconds: 270
+defense_enabled: false
+random_seed: 3001

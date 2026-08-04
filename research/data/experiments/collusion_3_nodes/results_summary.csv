@@ -1,0 +1,2 @@
+scenario_id,repetition_number,random_seed,started_at,duration_seconds,total_requests,successful_requests,failed_requests,success_rate,avg_latency_ms,p95_latency_ms,detection_time_seconds,nodes_quarantined
+collusion_3_nodes,1,3001,1785836818.6288679,278.75,417,417,0,1.0,78.74,116.92,73.32,"['node_4', 'node_2', 'node_6']"

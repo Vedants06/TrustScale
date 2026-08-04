@@ -245,6 +245,7 @@ services:
       - LOG_LEVEL=INFO
     volumes:
       - ./research/data/experiments:/app/research/data/experiments
+      - ./config/attack_scenarios:/app/config/attack_scenarios
     depends_on:
       - load_balancer
     networks:

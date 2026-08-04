@@ -1,0 +1,2 @@
+scenario_id,repetition_number,random_seed,started_at,duration_seconds,total_requests,successful_requests,failed_requests,success_rate,avg_latency_ms,p95_latency_ms,detection_time_seconds,nodes_quarantined
+byzantine_20pct,1,2001,1785836474.2686536,277.82,419,419,0,1.0,80.48,124.67,67.48,"['node_1', 'node_5']"

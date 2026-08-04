@@ -1,0 +1,40 @@
+{
+  "scenario_id": "collusion_3_nodes",
+  "repetition_number": 1,
+  "random_seed": 3001,
+  "started_at": 1785836818.6288679,
+  "completed_at": 1785837097.374239,
+  "duration_seconds": 278.75,
+  "total_requests": 417,
+  "successful_requests": 417,
+  "failed_requests": 0,
+  "success_rate": 1.0,
+  "avg_latency_ms": 78.74,
+  "p95_latency_ms": 116.92,
+  "detection_time_seconds": 73.32,
+  "nodes_quarantined": [
+    "node_4",
+    "node_2",
+    "node_6"
+  ],
+  "initial_trust_scores": {
+    "node_1": 0.5,
+    "node_2": 1.0,
+    "node_3": 1.0,
+    "node_4": 1.0,
+    "node_5": 0.48,
+    "node_6": 1.0,
+    "node_7": 1.0,
+    "node_8": 1.0
+  },
+  "final_trust_scores": {
+    "node_1": 1.0,
+    "node_2": 0.0,
+    "node_3": 1.0,
+    "node_4": 0.35,
+    "node_5": 1.0,
+    "node_6": 0.2,
+    "node_7": 1.0,
+    "node_8": 1.0
+  }
+}

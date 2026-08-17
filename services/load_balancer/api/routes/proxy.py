@@ -16,9 +16,9 @@ logger = get_logger("proxy")
 router = APIRouter()
 
 
-@router.api_route("/work", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
-async def proxy_work(request: Request):
-    """Forward work requests to a backend node using the active routing strategy."""
+@router.api_route("/api/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
+async def proxy_api(request: Request, path: str):
+    """Forward API requests to a backend node."""
     request_id = str(uuid4())
 
     selected_node = await select_node()
@@ -34,7 +34,7 @@ async def proxy_work(request: Request):
             node_address=selected_node["address"],
             node_port=selected_node["port"],
             method=request.method,
-            path="/work",
+            path=f"/api/{path}",
             body=body if body else None,
             headers=dict(request.headers),
         )
@@ -53,11 +53,10 @@ async def proxy_work(request: Request):
         )
 
         logger.info(
-            "Request proxied",
+            "API request proxied",
             request_id=request_id,
+            path=f"/api/{path}",
             selected_node=selected_node["node_id"],
-            node_address=selected_node["address"],
-            node_port=selected_node["port"],
             status=status,
             duration_ms=round(duration_ms, 2),
         )
@@ -70,9 +69,8 @@ async def proxy_work(request: Request):
 
     except Exception as error:
         logger.error(
-            "Proxy failed",
+            "API proxy failed",
             request_id=request_id,
-            selected_node=selected_node["node_id"],
             error=str(error),
         )
         raise HTTPException(status_code=502, detail="Backend node unavailable")

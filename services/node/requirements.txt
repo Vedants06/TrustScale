@@ -9,3 +9,4 @@ PyJWT>=2.10.0
 cryptography>=44.0.0
 prometheus-client>=0.21.0
 numpy>=2.2.0
+aiosqlite>=0.20.0

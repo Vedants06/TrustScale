@@ -11,6 +11,8 @@ from services.node.config.settings import settings
 from services.node.crypto.keypair import initialize_keypair, get_public_key_pem
 from services.node.config.behavior_config import load_behavior_from_env
 from services.node.monitoring.reporter import start_reporter, stop_reporter
+from services.node.api.routes import health, work, metrics, admin, booking
+from services.node.database.db import get_db, close_db
 from shared.utils.logger import get_logger
 
 logger = get_logger("node")
@@ -67,12 +69,17 @@ async def lifespan(app: FastAPI):
     _ = np.random.rand(10, 10) @ np.random.rand(10, 10)
     logger.info("Numpy BLAS warmed up")
 
+    # Initialize booking database
+    await get_db()
+    logger.info("Booking database ready")
+
     await register_with_lb()
     await start_reporter()
 
     yield
 
     await stop_reporter()
+    await close_db()
     logger.info(f"Node {settings.node_id} shutting down...")
 
 
@@ -95,3 +102,4 @@ app.include_router(health.router)
 app.include_router(work.router)
 app.include_router(metrics.router)
 app.include_router(admin.router)
+app.include_router(booking.router)

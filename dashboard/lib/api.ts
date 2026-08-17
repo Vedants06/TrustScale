@@ -159,4 +159,23 @@ export const api = {
       `${ORCHESTRATOR_URL}/experiments/${scenarioId}/${fileName}`,
     );
   },
+
+  async listTrains(): Promise<any[]> {
+    return fetchJson<any[]>(`${LB_URL}/api/trains`);
+  },
+
+  async bookTicket(
+    trainId: string,
+    passengerName: string,
+    seatClass: string = "SL",
+  ): Promise<any> {
+    return fetchJson(`${LB_URL}/api/book`, {
+      method: "POST",
+      body: JSON.stringify({
+        train_id: trainId,
+        passenger_name: passengerName,
+        seat_class: seatClass,
+      }),
+    });
+  },
 };

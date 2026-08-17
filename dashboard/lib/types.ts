@@ -109,6 +109,29 @@ export interface ExperimentSummary {
   nodes_quarantined: string[];
 }
 
+export interface TrainInfo {
+  train_id: string;
+  name: string;
+  source: string;
+  destination: string;
+  departure: string;
+  total_seats: number;
+  available_seats: number;
+  price: number;
+}
+
+export interface BookingResult {
+  id: string;
+  timestamp: number;
+  success: boolean;
+  booking_id?: string;
+  train_name?: string;
+  passenger_name: string;
+  response_time_ms: number;
+  node_id?: string;
+  error?: string;
+}
+
 export type LogLevel = "info" | "warn" | "error" | "success";
 
 export interface ActivityLogEntry {

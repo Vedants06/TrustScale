@@ -4,6 +4,7 @@ import json
 from typing import TypedDict
 
 from services.load_balancer.storage.redis_client import get_redis_client
+from services.load_balancer.trust.quarantine import is_node_quarantined
 from shared.utils.logger import get_logger
 
 logger = get_logger("round_robin")
@@ -18,13 +19,7 @@ class NodeTarget(TypedDict):
 
 
 async def select_round_robin_node() -> NodeTarget | None:
-    """Select the next available node using round-robin.
-
-    Uses a Redis counter to rotate across active nodes.
-
-    Returns:
-        NodeTarget if a node is available, otherwise None.
-    """
+    """Select the next available non-quarantined node using round-robin."""
     redis = await get_redis_client()
 
     raw_node_ids = await redis.smembers("nodes:active")
@@ -37,9 +32,13 @@ async def select_round_robin_node() -> NodeTarget | None:
     valid_nodes: list[NodeTarget] = []
 
     for node_id in node_ids:
+        # Skip quarantined nodes
+        if await is_node_quarantined(node_id):
+            logger.debug("Skipping quarantined node in round-robin", node_id=node_id)
+            continue
+
         node_info_raw = await redis.get(f"node:{node_id}")
         if not node_info_raw:
-            logger.warning("Skipping node with missing node info", node_id=node_id)
             continue
 
         try:
@@ -51,15 +50,11 @@ async def select_round_robin_node() -> NodeTarget | None:
                     port=int(node_info["port"]),
                 )
             )
-        except (KeyError, ValueError, TypeError, json.JSONDecodeError) as error:
-            logger.warning(
-                "Skipping invalid node info",
-                node_id=node_id,
-                error=str(error),
-            )
+        except (KeyError, ValueError, TypeError, json.JSONDecodeError):
+            continue
 
     if not valid_nodes:
-        logger.warning("No valid nodes available for round-robin")
+        logger.warning("No valid non-quarantined nodes for round-robin")
         return None
 
     counter = await redis.incr("routing:round_robin:index")

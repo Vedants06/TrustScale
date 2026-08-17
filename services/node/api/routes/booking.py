@@ -4,10 +4,13 @@ import uuid
 from datetime import datetime
 from time import perf_counter
 
+import asyncio
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from services.node.config.behavior_config import get_current_behavior
 from services.node.config.settings import settings
+from services.node.monitoring.request_tracker import tracker
 from services.node.database.db import get_db
 from shared.utils.logger import get_logger
 
@@ -103,61 +106,90 @@ async def get_train(train_id: str) -> TrainInfo:
 @router.post("/book")
 async def book_ticket(request: BookingRequest) -> BookingResponse:
     """Book a train ticket."""
+    await tracker.request_started()
     start = perf_counter()
-    db = await get_db()
 
-    cursor = await db.execute(
-        "SELECT * FROM trains WHERE train_id = ?",
-        (request.train_id,),
-    )
-    train = await cursor.fetchone()
+    try:
+        # If node is lying, simulate the overload effect
+        behavior = get_current_behavior()
+        if behavior.name != "HonestBehavior":
+            import random
 
-    if not train:
-        raise HTTPException(status_code=404, detail="Train not found")
+            # Scale delay by behavior intensity
+            # Higher intensity = more overloaded = worse performance
+            max_delay = 2.0 + (behavior.intensity * 4.0)
+            delay = random.uniform(0.5, max_delay)
+            await asyncio.sleep(delay)
 
-    if train["available_seats"] <= 0:
-        raise HTTPException(status_code=409, detail="No seats available")
+            # Failure probability scales with intensity
+            # intensity 0.8 = 40% failure rate
+            failure_chance = behavior.intensity * 0.5
+            if random.random() < failure_chance:
+                duration_ms = (perf_counter() - start) * 1000
+                await tracker.request_completed(duration_ms)
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"Server overloaded — node {settings.node_id} cannot process request",
+                )
 
-    booking_id = f"BK-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
-    booked_at = datetime.now().isoformat()
+        db = await get_db()
 
-    await db.execute(
-        """INSERT INTO bookings 
-           (booking_id, train_id, passenger_name, seat_class, status, booked_at, node_id)
-           VALUES (?, ?, ?, ?, 'confirmed', ?, ?)""",
-        (booking_id, request.train_id, request.passenger_name,
-         request.seat_class, booked_at, settings.node_id),
-    )
+        cursor = await db.execute(
+            "SELECT * FROM trains WHERE train_id = ?",
+            (request.train_id,),
+        )
+        train = await cursor.fetchone()
 
-    await db.execute(
-        "UPDATE trains SET available_seats = available_seats - 1 WHERE train_id = ?",
-        (request.train_id,),
-    )
+        if not train:
+            raise HTTPException(status_code=404, detail="Train not found")
 
-    await db.commit()
+        if train["available_seats"] <= 0:
+            raise HTTPException(status_code=409, detail="No seats available")
 
-    duration_ms = (perf_counter() - start) * 1000
+        booking_id = f"BK-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+        booked_at = datetime.now().isoformat()
 
-    logger.info(
-        "Ticket booked",
-        booking_id=booking_id,
-        train=train["name"],
-        passenger=request.passenger_name,
-        node_id=settings.node_id,
-        duration_ms=round(duration_ms, 2),
-    )
+        await db.execute(
+            """INSERT INTO bookings 
+               (booking_id, train_id, passenger_name, seat_class, status, booked_at, node_id)
+               VALUES (?, ?, ?, ?, 'confirmed', ?, ?)""",
+            (booking_id, request.train_id, request.passenger_name,
+             request.seat_class, booked_at, settings.node_id),
+        )
 
-    return BookingResponse(
-        booking_id=booking_id,
-        train_id=request.train_id,
-        train_name=train["name"],
-        passenger_name=request.passenger_name,
-        seat_class=request.seat_class,
-        status="confirmed",
-        node_id=settings.node_id,
-        response_time_ms=round(duration_ms, 2),
-        seats_remaining=train["available_seats"] - 1,
-    )
+        await db.execute(
+            "UPDATE trains SET available_seats = available_seats - 1 WHERE train_id = ?",
+            (request.train_id,),
+        )
+
+        await db.commit()
+
+        duration_ms = (perf_counter() - start) * 1000
+
+        logger.info(
+            "Ticket booked",
+            booking_id=booking_id,
+            train=train["name"],
+            passenger=request.passenger_name,
+            node_id=settings.node_id,
+            duration_ms=round(duration_ms, 2),
+        )
+
+        return BookingResponse(
+            booking_id=booking_id,
+            train_id=request.train_id,
+            train_name=train["name"],
+            passenger_name=request.passenger_name,
+            seat_class=request.seat_class,
+            status="confirmed",
+            node_id=settings.node_id,
+            response_time_ms=round(duration_ms, 2),
+            seats_remaining=train["available_seats"] - 1,
+        )
+
+    finally:
+        duration_ms = (perf_counter() - start) * 1000
+        await tracker.request_completed(duration_ms)
 
 
 @router.get("/bookings/{booking_id}")

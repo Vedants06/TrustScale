@@ -13,6 +13,7 @@ interface TopologyViewProps {
   nodes: NodeTrustDetails[];
   requestRate: number;
   totalRequests: number;
+  trafficTrigger: number;
   onNodeClick?: (node: NodeTrustDetails) => void;
 }
 
@@ -26,6 +27,7 @@ export function TopologyView({
   nodes,
   requestRate,
   totalRequests,
+  trafficTrigger,
   onNodeClick,
 }: TopologyViewProps) {
   const trafficEvents = useTrafficDetection(nodes);

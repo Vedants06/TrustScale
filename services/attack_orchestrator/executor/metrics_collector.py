@@ -132,3 +132,41 @@ async def send_work_request(
         metrics.total_requests += 1
         metrics.failed_requests += 1
         return False
+
+
+# async def send_work_request(
+#     metrics: ScenarioMetrics,
+#     intensity: int = 1000,
+# ) -> bool:
+#     """Send a booking request through the LB and record metrics."""
+#     start = time.perf_counter()
+
+#     try:
+#         async with httpx.AsyncClient() as client:
+#             response = await client.post(
+#                 f"{LB_URL}/api/book",
+#                 json={
+#                     "train_id": "RAJ001",
+#                     "passenger_name": "Scenario User",
+#                     "seat_class": "SL",
+#                 },
+#                 timeout=10.0,
+#             )
+
+#         duration_ms = (time.perf_counter() - start) * 1000
+#         metrics.latencies_ms.append(duration_ms)
+#         metrics.total_requests += 1
+
+#         if response.status_code == 200:
+#             metrics.successful_requests += 1
+#             return True
+#         else:
+#             metrics.failed_requests += 1
+#             return False
+
+#     except Exception:
+#         duration_ms = (time.perf_counter() - start) * 1000
+#         metrics.latencies_ms.append(duration_ms)
+#         metrics.total_requests += 1
+#         metrics.failed_requests += 1
+#         return False

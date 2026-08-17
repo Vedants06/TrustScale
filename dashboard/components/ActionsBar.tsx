@@ -14,6 +14,7 @@ import type {
 
 interface ActionsBarProps {
   nodes: NodeTrustDetails[];
+  onTrafficSent?: () => void;
 }
 
 const BEHAVIOR_OPTIONS: { value: BehaviorMode; label: string }[] = [

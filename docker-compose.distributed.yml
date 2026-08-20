@@ -1,0 +1,185 @@
+version: "3.8"
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: trustscale-redis
+    ports:
+      - "0.0.0.0:6379:6379"
+    volumes:
+      - ./infrastructure/redis/redis.conf:/usr/local/etc/redis/redis.conf
+      - redis-data:/data
+    command: redis-server /usr/local/etc/redis/redis.conf
+    networks:
+      - trustscale-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  load_balancer:
+    build:
+      context: .
+      dockerfile: services/load_balancer/Dockerfile
+    container_name: trustscale-lb
+    ports:
+      - "0.0.0.0:8000:8000"
+    environment:
+      - LB_PORT=8000
+      - REDIS_URL=redis://redis:6379
+      - ML_SERVICE_URL=http://ml_service:8100
+      - TRUST_STRATEGY=trust_aware
+      - PREDICTION_REFRESH_INTERVAL_SECONDS=30
+      - LOG_LEVEL=INFO
+    depends_on:
+      redis:
+        condition: service_healthy
+      ml_service:
+        condition: service_started
+    networks:
+      - trustscale-network
+
+  # Vedant's local nodes
+  node_7:
+    build:
+      context: .
+      dockerfile: services/node/Dockerfile
+    container_name: trustscale-node-7
+    ports:
+      - "0.0.0.0:8007:8001"
+    environment:
+      - NODE_ID=node_7
+      - NODE_PORT=8007
+      - NODE_ADDRESS=${MY_LAN_IP}
+      - LB_URL=http://load_balancer:8000
+      - BEHAVIOR_MODE=honest
+      - BEHAVIOR_INTENSITY=0.5
+      - REPORT_INTERVAL_SECONDS=5
+      - LOG_LEVEL=INFO
+    depends_on:
+      - load_balancer
+    networks:
+      - trustscale-network
+
+  node_8:
+    build:
+      context: .
+      dockerfile: services/node/Dockerfile
+    container_name: trustscale-node-8
+    ports:
+      - "0.0.0.0:8008:8001"
+    environment:
+      - NODE_ID=node_8
+      - NODE_PORT=8008
+      - NODE_ADDRESS=${MY_LAN_IP}
+      - LB_URL=http://load_balancer:8000
+      - BEHAVIOR_MODE=honest
+      - BEHAVIOR_INTENSITY=0.5
+      - REPORT_INTERVAL_SECONDS=5
+      - LOG_LEVEL=INFO
+    depends_on:
+      - load_balancer
+    networks:
+      - trustscale-network
+
+  traffic_generator:
+    build:
+      context: .
+      dockerfile: services/traffic_generator/Dockerfile
+    container_name: trustscale-traffic
+    ports:
+      - "8089:8089"
+    environment:
+      - TARGET_URL=http://load_balancer:8000
+      - TRAFFIC_PATTERN=morning_ramp
+      - STEADY_STATE_USERS=10
+      - STEADY_STATE_SPAWN_RATE=2
+      - STEADY_STATE_DURATION_SECONDS=300
+      - MORNING_RAMP_START_USERS=5
+      - MORNING_RAMP_TARGET_USERS=50
+      - MORNING_RAMP_SPAWN_RATE=2
+      - MORNING_RAMP_DURATION_SECONDS=300
+      - MORNING_RAMP_HOLD_SECONDS=600
+    depends_on:
+      - load_balancer
+    networks:
+      - trustscale-network
+
+  ml_service:
+    build:
+      context: .
+      dockerfile: services/ml_service/Dockerfile
+    container_name: trustscale-ml
+    ports:
+      - "8100:8100"
+    environment:
+      - ML_PORT=8100
+      - PROMETHEUS_URL=http://prometheus:9090
+      - MODEL_PATH=/models/lstm_v1.pt
+      - RETRAIN_INTERVAL_MINUTES=30
+      - LOG_LEVEL=INFO
+    networks:
+      - trustscale-network
+
+  attack_orchestrator:
+    build:
+      context: .
+      dockerfile: services/attack_orchestrator/Dockerfile
+    container_name: trustscale-orchestrator
+    ports:
+      - "0.0.0.0:8200:8200"
+    environment:
+      - ORCHESTRATOR_PORT=8200
+      - SCENARIOS_DIR=/app/config/attack_scenarios
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./research/data/experiments:/app/research/data/experiments
+      - ./config/attack_scenarios:/app/config/attack_scenarios
+    depends_on:
+      - load_balancer
+    networks:
+      - trustscale-network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: trustscale-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infrastructure/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./infrastructure/prometheus/rules/recording_rules.yml:/etc/prometheus/rules/recording_rules.yml
+      - prometheus-data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    networks:
+      - trustscale-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: trustscale-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./infrastructure/grafana/grafana.ini:/etc/grafana/grafana.ini
+      - ./infrastructure/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./infrastructure/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - ./infrastructure/grafana/dashboards:/var/lib/grafana/dashboards
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=trustscale
+    depends_on:
+      - prometheus
+    networks:
+      - trustscale-network
+
+networks:
+  trustscale-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+  prometheus-data:
+  grafana-dashboards:

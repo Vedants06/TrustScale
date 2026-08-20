@@ -22,9 +22,11 @@ async def register_with_lb() -> bool:
     """Register this node with the load balancer."""
     url = f"{settings.lb_url}/nodes/register"
 
+    address = settings.node_address if settings.node_address else settings.node_id
+
     payload = {
         "node_id": settings.node_id,
-        "address": settings.node_id,
+        "address": address,
         "port": settings.node_port,
         "public_key": get_public_key_pem(),
     }
@@ -35,10 +37,7 @@ async def register_with_lb() -> bool:
                 result = await response.json()
 
                 if result.get("status") == "registered":
-                    logger.info(
-                        "Registered with load balancer",
-                        node_id=settings.node_id,
-                    )
+                    logger.info("Registered with load balancer", node_id=settings.node_id, address=address)
                     return True
                 else:
                     logger.error("Registration failed", result=result)

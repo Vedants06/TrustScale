@@ -8,6 +8,7 @@ class Settings(BaseSettings):
 
     node_id: str = "node_1"
     node_port: int = 8001
+    node_address: str = ""
     lb_url: str = "http://localhost:8000"
     behavior_mode: str = "honest"
     behavior_intensity: float = 0.5

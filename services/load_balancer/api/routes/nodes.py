@@ -210,3 +210,14 @@ async def get_node_trust(node_id: str):
         "cross_validation": cv_result,
         "recent_history": history,
     }
+
+@router.get("/{node_id}/info")
+async def get_node_info(node_id: str):
+    """Get registered address and port for a specific node."""
+    redis = await get_redis_client()
+    raw = await redis.get(f"node:{node_id}")
+
+    if not raw:
+        raise HTTPException(status_code=404, detail=f"Node {node_id} not registered")
+
+    return json.loads(raw)

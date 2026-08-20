@@ -23,8 +23,22 @@ async def set_node_behavior(
     mode: str,
     intensity: float,
 ) -> bool:
-    """Change a node's behavior via admin API."""
-    url = f"http://{node_id}:8001/admin/set-behavior"
+    """Change a node's behavior via admin API (supports remote nodes across LAN)."""
+    # Dynamic address lookup from LB registry
+    node_address = node_id
+    node_port = 8001
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(f"{LB_URL}/nodes/{node_id}/info", timeout=3.0)
+            if resp.status_code == 200:
+                data = resp.json()
+                node_address = data.get("address", node_id)
+                node_port = data.get("port", 8001)
+    except Exception:
+        pass
+
+    url = f"http://{node_address}:{node_port}/admin/set-behavior"
 
     try:
         async with httpx.AsyncClient() as client:
@@ -38,6 +52,7 @@ async def set_node_behavior(
             logger.info(
                 "Node behavior set",
                 node_id=node_id,
+                address=node_address,
                 mode=mode,
                 intensity=intensity,
             )

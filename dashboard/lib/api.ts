@@ -165,17 +165,21 @@ export const api = {
   },
 
   async bookTicket(
-    trainId: string,
-    passengerName: string,
-    seatClass: string = "SL",
-  ): Promise<any> {
-    return fetchJson(`${LB_URL}/api/book`, {
+  trainId: string,
+  passengerName: string,
+  seatClass: string = "SL",
+): Promise<any> {
+  return fetchJson(
+    `${LB_URL}/api/book`,
+    {
       method: "POST",
       body: JSON.stringify({
         train_id: trainId,
         passenger_name: passengerName,
         seat_class: seatClass,
       }),
-    });
-  },
+    },
+    0,
+  );
+},
 };

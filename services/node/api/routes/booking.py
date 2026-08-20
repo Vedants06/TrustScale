@@ -123,7 +123,7 @@ async def book_ticket(request: BookingRequest) -> BookingResponse:
 
             # Failure probability scales with intensity
             # intensity 0.8 = 40% failure rate
-            failure_chance = behavior.intensity * 0.5
+            failure_chance = behavior.intensity * 0.6
             if random.random() < failure_chance:
                 duration_ms = (perf_counter() - start) * 1000
                 await tracker.request_completed(duration_ms)

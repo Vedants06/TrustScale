@@ -62,9 +62,9 @@ export function ActionsBar({ nodes }: ActionsBarProps) {
   useEffect(() => {
     async function checkStatus() {
       try {
-        const response = await fetch("http://localhost:8200/scenarios/status");
-        const data = await response.json();
+        const data = await api.getScenarioStatus();
         setScenarioRunning(data.is_running);
+      
       } catch {
         // ignore
       }

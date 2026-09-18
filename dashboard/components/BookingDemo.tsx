@@ -338,7 +338,7 @@ export function BookingDemo() {
         </div>
 
         {/* Live Booking History Column */}
-        <div className="flex flex-col h-[700px] rounded-lg border border-border bg-card shadow-sm">
+        <div className="flex flex-col h-175 rounded-lg border border-border bg-card shadow-sm">
           <div className="flex items-center justify-between border-b border-border p-5">
             <h3 className="font-semibold text-lg">Live Booking Feed</h3>
             <div className={`px-3 py-1 rounded-full text-xs font-bold ${
@@ -413,7 +413,7 @@ export function BookingDemo() {
                     {booking.train_name && (
                       <>
                         <span className="opacity-40">•</span>
-                        <span className="truncate max-w-[120px]">{booking.train_name}</span>
+                        <span className="truncate max-w-30">{booking.train_name}</span>
                       </>
                     )}
                     {booking.node_id && (
